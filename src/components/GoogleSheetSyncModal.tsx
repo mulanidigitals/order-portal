@@ -101,13 +101,11 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   };
 
   const exportAllocations = () => {
-    const headers = ['SKU', 'Description', 'Brand', 'Packs', 'Multiplier (Pcs/Pack)', 'Total Pcs', 'Reserved Pcs', 'Available Pcs', 'Last Updated', 'Source'];
+    const headers = ['SKU', 'Description', 'Brand', 'Allocated Units (EA)', 'Reserved Units (EA)', 'Available Units (EA)', 'Last Updated', 'Source'];
     const rows = allocations.map((a) => [
       a.itemSku,
       `"${a.itmdesc}"`,
       a.manufacturer,
-      a.packs,
-      a.packUnitSize,
       a.totalPcs,
       a.reservedPcs,
       a.availablePcs,

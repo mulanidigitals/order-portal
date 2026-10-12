@@ -497,7 +497,7 @@ export const CustomerPortal: React.FC = () => {
                       {hasAllocation ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>{phone.availableAllocationPcs} pcs In Allocation</span>
+                          <span>{phone.availableAllocationPcs} EA In Allocation</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -509,7 +509,7 @@ export const CustomerPortal: React.FC = () => {
                       {phone.recommendedOrderQtyPcs > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-pink-50 text-pink-700 border border-pink-200">
                           <Sparkles className="w-3 h-3 text-pink-600" />
-                          <span>Rec: +{phone.recommendedOrderQtyPcs} pcs</span>
+                          <span>Rec: +{phone.recommendedOrderQtyPcs} EA</span>
                         </span>
                       )}
                     </div>
@@ -522,22 +522,41 @@ export const CustomerPortal: React.FC = () => {
                     <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 mt-0.5 mb-1">
                       {phone.itmdesc}
                     </h3>
-                    <p className="text-[11px] font-mono text-slate-500 mb-4">
+                    <p className="text-[11px] font-mono text-slate-500 mb-2.5">
                       SKU: <span className="text-slate-700 font-semibold">{phone.itemSku}</span>
                     </p>
 
+                    {/* Wholesale Dealer Price & Retail MSRP Display (Prompt: Wholesale $204.00 EA) */}
+                    <div className="flex items-baseline justify-between mb-3.5 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200 shadow-xs">
+                      <div>
+                        <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">
+                          Wholesale Price
+                        </span>
+                        <span className="text-base font-black text-emerald-700 font-mono">
+                          ${phone.wholesale.toFixed(2)}{' '}
+                          <span className="text-[10px] font-sans font-bold text-emerald-800">EA</span>
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-500 font-medium block">Retail MSRP</span>
+                        <span className="text-xs font-bold text-slate-700 font-mono">
+                          ${phone.price.toFixed(2)} <span className="text-[10px] font-sans">EA</span>
+                        </span>
+                      </div>
+                    </div>
+
                     {/* Ordering Trend & Sales Dashboard Card */}
-                    <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center mb-4">
+                    <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center mb-4">
                       <div>
                         <span className="text-[10px] text-slate-500 block font-medium">Store Stock</span>
                         <span className="text-sm font-black text-slate-900 font-mono">
-                          {phone.currentInventory} pcs
+                          {phone.currentInventory} EA
                         </span>
                       </div>
                       <div className="border-x border-slate-200">
                         <span className="text-[10px] text-slate-500 block font-medium">Last 7D Sold</span>
                         <span className="text-sm font-black text-pink-600 font-mono">
-                          {phone.last7DaysSalesPcs} pcs
+                          {phone.last7DaysSalesPcs} EA
                         </span>
                         {phone.salesTrendPercentage !== 0 && (
                           <span className={`text-[9px] font-bold block ${phone.salesTrendPercentage > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
@@ -548,7 +567,7 @@ export const CustomerPortal: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-500 block font-medium">Past Orders</span>
                         <span className="text-sm font-black text-slate-700 font-mono">
-                          {phone.customerPreviousOrdersPcs} pcs
+                          {phone.customerPreviousOrdersPcs} EA
                         </span>
                       </div>
                     </div>
@@ -593,7 +612,7 @@ export const CustomerPortal: React.FC = () => {
                       }`}
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>{inCartQty > 0 ? `In Cart (${inCartQty} pcs)` : 'Add to Order'}</span>
+                      <span>{inCartQty > 0 ? `In Cart (${inCartQty} EA)` : 'Add to Order'}</span>
                     </button>
                   </div>
                 </div>

@@ -248,7 +248,7 @@ export const AdminOrdersManager: React.FC = () => {
             Wichita Stores Inv (Excl TTLWICHHQ)
           </span>
           <p className="text-xl font-black text-slate-900 font-mono mt-1">
-            {totalWichitaStoresInvExclHq.toLocaleString()} pcs
+            {totalWichitaStoresInvExclHq.toLocaleString()} EA
           </p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">
             Available across Wichita store branches
@@ -260,7 +260,7 @@ export const AdminOrdersManager: React.FC = () => {
             Wichita Hub Inv (TTLWICHHQ)
           </span>
           <p className="text-xl font-black text-indigo-700 font-mono mt-1">
-            {totalWichitaHubInvTtlwichhq.toLocaleString()} pcs
+            {totalWichitaHubInvTtlwichhq.toLocaleString()} EA
           </p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">
             Available at Wichita Central Hub
@@ -272,10 +272,10 @@ export const AdminOrdersManager: React.FC = () => {
             Total Combined Wichita Inventory
           </span>
           <p className="text-xl font-black text-emerald-700 font-mono mt-1">
-            {totalWichitaInventorySum.toLocaleString()} pcs
+            {totalWichitaInventorySum.toLocaleString()} EA
           </p>
           <span className="text-[10px] text-indigo-600 mt-0.5 block">
-            Stores ({totalWichitaStoresInvExclHq}) + Hub ({totalWichitaHubInvTtlwichhq})
+            Stores ({totalWichitaStoresInvExclHq} EA) + Hub ({totalWichitaHubInvTtlwichhq} EA)
           </span>
         </div>
       </div>

@@ -161,6 +161,11 @@ interface AppContextType {
   resetToInitialData: () => void;
   adminPassword: string;
   updateAdminPassword: (newPass: string) => boolean;
+
+  // Admin Price & Catalog Management
+  updateProductPrice: (sku: string, newWholesale: number, newPrice: number, newCost?: number) => void;
+  addNewProductToPriceList: (item: InventoryItem) => void;
+  importBulkPriceList: (items: Partial<InventoryItem>[]) => { count: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -210,15 +215,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(STORAGE_KEYS.STORE_ID, id);
   };
 
-  // State with LocalStorage persistence
+  // State with LocalStorage persistence (upgrading if saved version was old 21-item demo data)
   const [inventory, setInventory] = useState<InventoryItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-    return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 150) {
+          return parsed;
+        }
+      } catch (e) {
+        // fallback to INITIAL_INVENTORY
+      }
+    }
+    return INITIAL_INVENTORY;
   });
 
   const [allocations, setAllocations] = useState<AllocationItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ALLOCATIONS);
-    return saved ? JSON.parse(saved) : INITIAL_ALLOCATIONS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If all entries are pure EA (packUnitSize <= 1), keep user adjustments
+          const isPureEa = parsed.every((p: AllocationItem) => !p.packUnitSize || p.packUnitSize === 1);
+          if (isPureEa) return parsed;
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+    return INITIAL_ALLOCATIONS;
   });
 
   const [orders, setOrders] = useState<CustomerOrder[]>(() => {
@@ -237,12 +264,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         orderNumber: 'WICH-ORD-903429',
         storeId: 'ALL_WICHITA',
         storeName: 'All Wichita Stores (Combined)',
-        itemSku: '195950637151',
-        itmdesc: 'APL IPHONE 17 PRO MAX 256G SLV KIT',
+        itemSku: '195950642803',
+        itmdesc: 'APL IPHONE 17 256G BLK KIT',
         manufacturer: 'APPLE',
         neededQty: 4,
-        unitWholesaleCost: 1238.49,
-        totalCost: 4953.96,
+        unitWholesaleCost: 929.99,
+        totalCost: 3719.96,
         addedAt: '10/8/26',
         estimatedArrivalDate: '10/10/26',
         status: 'Awaiting IDOO Order',
@@ -267,7 +294,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SALES);
-    return saved ? JSON.parse(saved) : INITIAL_SALES_RECORDS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 100) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_SALES_RECORDS;
   });
 
   // Save to localStorage on change
@@ -411,12 +444,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       savedUrl && savedUrl.trim().startsWith('http')
         ? savedUrl.trim()
         : DEFAULT_SHEET_WEBHOOK_URL;
-    const autoEnabled = localStorage.getItem('wichita_auto_sync_enabled') !== 'false';
+    const autoEnabled = localStorage.getItem('wichita_auto_sync_enabled') === 'true'; // Default false: sync only on demand / when triggered
     return {
       webhookUrl: url,
       autoSyncEnabled: autoEnabled,
-      lastSyncTime: 'Connected (Live)',
-      status: 'synced',
+      lastSyncTime: 'Ready',
+      status: 'idle',
       totalSyncedItems: 0,
     };
   });
@@ -485,19 +518,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Periodic background heartbeat sync every 60 seconds (Auto-syncs live on Git / Production)
-  useEffect(() => {
-    const activeUrl = sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL;
-    if (!sheetSyncState.autoSyncEnabled || !activeUrl) return;
-    const interval = setInterval(() => {
-      dispatchAutoSync('BACKGROUND_HEARTBEAT_SYNC', {
-        ordersCount: orders.length,
-        allocationsCount: allocations.length,
-        timestamp: new Date().toISOString(),
-      });
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [sheetSyncState.autoSyncEnabled, sheetSyncState.webhookUrl, orders.length, allocations.length]);
+  // Periodic sync removed as requested: Sync only occurs when user explicitly triggers it
+  // ("aur allocation bas ek hi data sync ho bar bar nai, me dekh raha hun log sync me ye bar bar ho rah ahai - jab kia jai bas tabi hi hona chahiye")
 
   const triggerManualSheetSync = async (): Promise<boolean> => {
     const targetUrl = sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL;
@@ -1275,12 +1297,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Multiple attachment upload support + Zero out previous allocations when replacePrevious=true
+  // Pure EA Allocations: 1 unit in allocation = 1 EA available (no packs, no multipliers)
   const addAllocationFromScreenshot = (
     parsedItems: {
       sku: string;
       description: string;
       manufacturer: string;
-      packs: number;
+      packs: number; // Represents quantity in EA
     }[],
     replacePrevious: boolean = true,
     batchLabel?: string
@@ -1298,14 +1321,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         : [...prevAllocations];
 
       for (const item of parsedItems) {
-        const isIphone =
-          item.manufacturer.toUpperCase().includes('APPLE') ||
-          item.description.toUpperCase().includes('IPHONE') ||
-          item.sku.startsWith('1959') ||
-          item.sku.startsWith('1942');
-
-        const packUnitSize = isIphone ? 20 : 5;
-        const totalPcs = item.packs * packUnitSize;
+        // Pure EA: quantity is strictly in EA units (1:1, no packs multiplier)
+        const totalPcs = Number(item.packs) || 0;
 
         const existingIdx = baseAllocations.findIndex((a) => a.itemSku === item.sku);
         if (existingIdx >= 0) {
@@ -1314,12 +1331,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const newAvailablePcs = Math.max(0, newTotalPcs - exist.reservedPcs);
           baseAllocations[existingIdx] = {
             ...exist,
-            packs: replacePrevious ? item.packs : exist.packs + item.packs,
-            packUnitSize,
+            packs: replacePrevious ? totalPcs : (exist.packs || 0) + totalPcs,
+            packUnitSize: 1,
             totalPcs: newTotalPcs,
             availablePcs: newAvailablePcs,
-            lastUpdated: 'Just now (Multi-Attachment OCR)',
-            sourceNote: batchLabel || 'Screenshot OCR Batch',
+            lastUpdated: 'Just now (Allocation Upload)',
+            sourceNote: batchLabel || 'Carrier Allocation (EA)',
           };
         } else {
           baseAllocations.push({
@@ -1327,13 +1344,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             itemSku: item.sku,
             itmdesc: item.description,
             manufacturer: item.manufacturer.toUpperCase(),
-            packs: item.packs,
-            packUnitSize,
+            packs: totalPcs,
+            packUnitSize: 1,
             totalPcs,
             reservedPcs: 0,
             availablePcs: totalPcs,
-            lastUpdated: 'Just now (Multi-Attachment OCR)',
-            sourceNote: batchLabel || 'Screenshot OCR Batch',
+            lastUpdated: 'Just now (Allocation Upload)',
+            sourceNote: batchLabel || 'Carrier Allocation (EA)',
           });
         }
       }
@@ -1348,15 +1365,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const updateAllocationItem = (id: string, packs: number, note?: string) => {
+  const updateAllocationItem = (id: string, qtyEa: number, note?: string) => {
     setAllocations((prev) =>
       prev.map((a) => {
         if (a.id === id) {
-          const totalPcs = packs * a.packUnitSize;
+          const totalPcs = Number(qtyEa) || 0;
           const availablePcs = Math.max(0, totalPcs - a.reservedPcs);
           return {
             ...a,
-            packs,
+            packs: totalPcs,
+            packUnitSize: 1,
             totalPcs,
             availablePcs,
             lastUpdated: 'Just now',
@@ -1378,20 +1396,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     availablePcs: number;
   }) => {
     setAllocations((prev) => {
+      const eaQty = Number(item.totalPcs) || Number(item.packs) || 1;
       const existingIdx = prev.findIndex((a) => a.itemSku === item.itemSku);
       if (existingIdx >= 0) {
         const exist = prev[existingIdx];
-        const newTotal = exist.totalPcs + item.totalPcs;
-        const newPacks = exist.packs + item.packs;
+        const newTotal = exist.totalPcs + eaQty;
         const newAvail = Math.max(0, newTotal - exist.reservedPcs);
         const updated = [...prev];
         updated[existingIdx] = {
           ...exist,
-          packs: newPacks,
+          packs: newTotal,
+          packUnitSize: 1,
           totalPcs: newTotal,
           availablePcs: newAvail,
           lastUpdated: 'Just now (Manual Entry)',
-          sourceNote: 'Admin Manual Allocation',
+          sourceNote: 'Admin Manual Allocation (EA)',
         };
         return updated;
       }
@@ -1401,13 +1420,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           itemSku: item.itemSku,
           itmdesc: item.itmdesc,
           manufacturer: item.manufacturer.toUpperCase(),
-          packs: item.packs,
-          packUnitSize: item.packUnitSize,
-          totalPcs: item.totalPcs,
+          packs: eaQty,
+          packUnitSize: 1,
+          totalPcs: eaQty,
           reservedPcs: 0,
-          availablePcs: item.availablePcs,
+          availablePcs: eaQty,
           lastUpdated: 'Just now (Manual Entry)',
-          sourceNote: 'Admin Manual Allocation',
+          sourceNote: 'Admin Manual Allocation (EA)',
         },
         ...prev,
       ];
@@ -1418,6 +1437,114 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteAllocationItem = (id: string) => {
     setAllocations((prev) => prev.filter((a) => a.id !== id));
     dispatchAutoSync('ALLOCATION_UPDATED', { deletedId: id });
+  };
+
+  // Admin Price Update ("aur admin ko right dein ke woh price update kar sake")
+  const updateProductPrice = (sku: string, newWholesale: number, newPrice: number, newCost?: number) => {
+    setInventory((prev) => {
+      const updated = prev.map((item) => {
+        if (item.item === sku) {
+          return {
+            ...item,
+            wholesale: Number(newWholesale),
+            price: Number(newPrice),
+            cost: newCost !== undefined ? Number(newCost) : item.cost,
+            lastcost: newCost !== undefined ? Number(newCost) : item.lastcost,
+          };
+        }
+        return item;
+      });
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Add New Product to Master Catalog / Price List
+  const addNewProductToPriceList = (item: InventoryItem) => {
+    setInventory((prev) => {
+      const updated = [item, ...prev];
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Bulk Import / Update from Google Sheet or TSV/CSV
+  const importBulkPriceList = (items: Partial<InventoryItem>[]): { count: number } => {
+    let count = 0;
+    setInventory((prev) => {
+      const itemMap = new Map<string, InventoryItem>();
+      prev.forEach((it) => {
+        itemMap.set(it.item, it);
+      });
+
+      items.forEach((p) => {
+        if (!p.item) return;
+        count++;
+        const existing = itemMap.get(p.item);
+        if (existing) {
+          itemMap.set(p.item, {
+            ...existing,
+            itmdesc: p.itmdesc || existing.itmdesc,
+            wholesale: p.wholesale !== undefined ? Number(p.wholesale) : existing.wholesale,
+            price: p.price !== undefined ? Number(p.price) : existing.price,
+            cost: p.cost !== undefined ? Number(p.cost) : existing.cost,
+            category: (p.category as any) || existing.category,
+            manufacturer: p.manufacturer || existing.manufacturer,
+            isTopPriority: p.isTopPriority !== undefined ? p.isTopPriority : existing.isTopPriority,
+          });
+        } else {
+          const newItem: InventoryItem = {
+            id: `inv-custom-${Date.now()}-${p.item}`,
+            custno: 'TTLWICHHQ',
+            company: 'TOMORROW CONNECT MAIN',
+            marketid: 'WICHITA',
+            region: 'WICHITA',
+            item: p.item,
+            manufacturer: p.manufacturer || 'METROPCS',
+            color: p.color || 'STANDARD',
+            prodline: 'METROPCS',
+            category: (p.category as any) || 'PHONES',
+            subclass: p.subclass || 'HARDWARE',
+            itmdesc: p.itmdesc || `Item ${p.item}`,
+            serialized: true,
+            price: Number(p.price) || 0,
+            qty: Number(p.qty) || 0,
+            cost: Number(p.cost) || 0,
+            lastcost: Number(p.cost) || 0,
+            wholesale: Number(p.wholesale) || 0,
+            adddate: new Date().toLocaleDateString(),
+            isTopPriority: !!p.isTopPriority,
+          };
+          itemMap.set(p.item, newItem);
+        }
+      });
+
+      const updatedList: InventoryItem[] = [];
+      prev.forEach((old) => {
+        const master = itemMap.get(old.item);
+        if (master) {
+          updatedList.push({
+            ...old,
+            itmdesc: master.itmdesc,
+            wholesale: master.wholesale,
+            price: master.price,
+            cost: master.cost,
+            isTopPriority: master.isTopPriority,
+          });
+          itemMap.delete(old.item);
+        } else {
+          updatedList.push(old);
+        }
+      });
+
+      itemMap.forEach((newItem) => {
+        updatedList.push(newItem);
+      });
+
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updatedList));
+      return updatedList;
+    });
+    return { count };
   };
 
   const updateMarketBudgetLimit = (newLimit: number) => {
@@ -1583,6 +1710,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         resetToInitialData,
         adminPassword,
         updateAdminPassword,
+        updateProductPrice,
+        addNewProductToPriceList,
+        importBulkPriceList,
         sheetSyncState,
         updateSheetWebhookUrl,
         toggleAutoSync,

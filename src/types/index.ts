@@ -27,11 +27,11 @@ export interface AllocationItem {
   itemSku: string;
   itmdesc: string;
   manufacturer: string;
-  packs: number; // In packs
-  packUnitSize: number; // 20 pcs for iPhones, 5 pcs for others
-  totalPcs: number; // packs * packUnitSize
-  reservedPcs: number;
-  availablePcs: number;
+  packs?: number; // EA unit count
+  packUnitSize?: number; // 1 (All allocations are in EA)
+  totalPcs: number; // Total quantity in EA
+  reservedPcs: number; // Reserved quantity in EA
+  availablePcs: number; // Available quantity in EA to order
   lastUpdated: string;
   sourceNote?: string;
 }

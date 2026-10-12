@@ -255,7 +255,7 @@ export const SalesForecastReports: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Stores Inv (Excl HQ)
           </span>
-          <p className="text-xl font-black text-slate-900 font-mono mt-1">{totalStoresInvExclHq} pcs</p>
+          <p className="text-xl font-black text-slate-900 font-mono mt-1">{totalStoresInvExclHq} EA</p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">a - Store branches</span>
         </div>
 
@@ -263,7 +263,7 @@ export const SalesForecastReports: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Hub (TTLWICHHQ)
           </span>
-          <p className="text-xl font-black text-indigo-700 font-mono mt-1">{totalHubInvTtlwichhq} pcs</p>
+          <p className="text-xl font-black text-indigo-700 font-mono mt-1">{totalHubInvTtlwichhq} EA</p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">b - Central Hub</span>
         </div>
 
@@ -271,7 +271,7 @@ export const SalesForecastReports: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             7D Sales Velocity
           </span>
-          <p className="text-xl font-black text-pink-700 font-mono mt-1">{total7DaySold} pcs</p>
+          <p className="text-xl font-black text-pink-700 font-mono mt-1">{total7DaySold} EA</p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">c - Last 7 days run-rate</span>
         </div>
 
@@ -279,7 +279,7 @@ export const SalesForecastReports: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             2-Wk Forecast Demand
           </span>
-          <p className="text-xl font-black text-indigo-900 font-mono mt-1">{total2WeekForecast} pcs</p>
+          <p className="text-xl font-black text-indigo-900 font-mono mt-1">{total2WeekForecast} EA</p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">e - 14-day projection</span>
         </div>
 
@@ -287,7 +287,7 @@ export const SalesForecastReports: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Qty in Allocation
           </span>
-          <p className="text-xl font-black text-emerald-700 font-mono mt-1">{totalAllocationAvailable} pcs</p>
+          <p className="text-xl font-black text-emerald-700 font-mono mt-1">{totalAllocationAvailable} EA</p>
           <span className="text-[10px] text-slate-400 mt-0.5 block">g - Open allocation quota</span>
         </div>
 
@@ -809,37 +809,47 @@ export const SalesForecastReports: React.FC = () => {
 
                     {/* a - Store quantities available in Wichita (excluding TTLWICHHQ) */}
                     <td className="py-3 px-3 text-center font-bold text-slate-900 bg-slate-50/50">
-                      {item.storesInventoryExclHq} pcs
+                      {item.storesInventoryExclHq} EA
                     </td>
 
                     {/* b - HUB - TTLWICHHQ */}
                     <td className="py-3 px-3 text-center font-bold text-indigo-700 bg-indigo-50/30">
-                      {item.hubInventoryTtlwichhq} pcs
+                      {item.hubInventoryTtlwichhq} EA
                     </td>
 
                     {/* c - 7 Days Sales */}
                     <td className="py-3 px-3 text-center font-bold text-pink-700">
-                      {item.last7DaysSalesPcs} pcs
+                      {item.last7DaysSalesPcs} EA
                     </td>
 
                     {/* d - Wichita inventory (a + b) - c */}
                     <td className="py-3 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">
-                      {item.netWichitaInventory} pcs
+                      {item.netWichitaInventory} EA
                     </td>
 
-                    {/* e - 2 wk forecast */}
-                    <td className="py-3 px-3 text-center text-indigo-900 font-bold">
-                      {item.projected2WeeksDemandPcs} pcs
+                    {/* e - 2 wk forecast (to know how much we will require in 2 weeks) */}
+                    <td className="py-3 px-3 text-center">
+                      <span className="text-indigo-900 font-bold block">{item.projected2WeeksDemandPcs} EA</span>
+                      <span className="text-[10px] text-slate-500 font-sans block" title="Net replenishment required for 2 weeks after Wichita inventory">
+                        Req: <strong className={Math.max(0, item.projected2WeeksDemandPcs - Math.max(0, item.netWichitaInventory)) > 0 ? "text-pink-700 font-bold" : "text-emerald-700 font-semibold"}>
+                          {Math.max(0, item.projected2WeeksDemandPcs - Math.max(0, item.netWichitaInventory))} EA
+                        </strong>
+                      </span>
                     </td>
 
-                    {/* f - how much required in 3 weeks */}
-                    <td className="py-3 px-3 text-center text-slate-700">
-                      {item.projected3WeeksDemandPcs} pcs
+                    {/* f - how much we will require in 3 weeks */}
+                    <td className="py-3 px-3 text-center">
+                      <span className="text-slate-800 font-bold block">{item.projected3WeeksDemandPcs} EA</span>
+                      <span className="text-[10px] text-slate-500 font-sans block" title="Net replenishment required for 3 weeks after Wichita inventory">
+                        Req: <strong className={Math.max(0, item.projected3WeeksDemandPcs - Math.max(0, item.netWichitaInventory)) > 0 ? "text-pink-700 font-bold" : "text-emerald-700 font-semibold"}>
+                          {Math.max(0, item.projected3WeeksDemandPcs - Math.max(0, item.netWichitaInventory))} EA
+                        </strong>
+                      </span>
                     </td>
 
                     {/* g - qty available in allocation */}
                     <td className="py-3 px-3 text-center font-black text-pink-700 bg-pink-50/30">
-                      {item.availableAllocationPcs} pcs
+                      {item.availableAllocationPcs} EA
                     </td>
 
                     {/* Weeks of Supply (WoS) */}
