@@ -137,13 +137,20 @@ interface AppContextType {
 
   updateCreditLimit: (newLimit: number, notes?: string) => void;
 
+  deleteOrder: (orderId: string) => void;
   resetToInitialData: () => void;
+  adminPassword: string;
+  updateAdminPassword: (newPass: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+export const DEFAULT_SHEET_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbw-VDOydZxvcQiZ8CH--K8qdKv8AAuUmBkteO5cTQUXEjlm-ZXbwnmauX7t-fqO8Szi/exec';
+
 const STORAGE_KEYS = {
   AUTH: 'wichita_auth_session_v2',
+  ADMIN_PASSWORD: 'wichita_admin_password_v2',
   INVENTORY: 'wichita_inventory_v2',
   ALLOCATIONS: 'wichita_allocations_v2',
   ORDERS: 'wichita_orders_v2',
@@ -280,6 +287,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(salesRecords));
   }, [salesRecords]);
 
+  // Admin Password Management (Protected, configurable, with default 'WichitaAdmin2026')
+  const [adminPassword, setAdminPassword] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.ADMIN_PASSWORD) || 'WichitaAdmin2026';
+  });
+
+  const updateAdminPassword = (newPass: string) => {
+    const trimmed = newPass.trim();
+    if (trimmed.length < 4) return false;
+    setAdminPassword(trimmed);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_PASSWORD, trimmed);
+    return true;
+  };
+
   // Auth actions
   const loginAsCustomer = (storeId?: string) => {
     setAuthSession({
@@ -296,8 +316,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loginAsAdmin = (password: string) => {
-    // Accepts "admin", "1234", "metro", or any non-empty input for ease of use
-    if (password.trim().length > 0) {
+    // Only accepts the exact configured adminPassword
+    if (password && password.trim() === adminPassword) {
       setAuthSession({
         role: 'admin',
         username: 'metro_admin',
@@ -331,26 +351,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  // Google Sheets Live Auto-Sync Engine
+  // Google Sheets Live Auto-Sync Engine (Connected by default to user's Google Apps Script)
   const [sheetSyncState, setSheetSyncState] = useState<SheetSyncState>(() => {
-    const url = localStorage.getItem('wichita_sheet_webhook_url') || '';
+    const savedUrl = localStorage.getItem('wichita_sheet_webhook_url');
+    // Default to the provided live Google Apps Script URL if not set or empty
+    const url =
+      savedUrl && savedUrl.trim().startsWith('http')
+        ? savedUrl.trim()
+        : DEFAULT_SHEET_WEBHOOK_URL;
     const autoEnabled = localStorage.getItem('wichita_auto_sync_enabled') !== 'false';
     return {
       webhookUrl: url,
       autoSyncEnabled: autoEnabled,
-      lastSyncTime: url ? 'Active' : null,
-      status: url ? 'synced' : 'idle',
+      lastSyncTime: 'Connected (Live)',
+      status: 'synced',
       totalSyncedItems: 0,
     };
   });
 
   const updateSheetWebhookUrl = (url: string) => {
-    localStorage.setItem('wichita_sheet_webhook_url', url);
+    const cleanUrl = url.trim() || DEFAULT_SHEET_WEBHOOK_URL;
+    localStorage.setItem('wichita_sheet_webhook_url', cleanUrl);
     setSheetSyncState((prev) => ({
       ...prev,
-      webhookUrl: url,
-      status: url ? 'synced' : 'idle',
-      lastSyncTime: url ? new Date().toLocaleTimeString() : null,
+      webhookUrl: cleanUrl,
+      status: 'synced',
+      lastSyncTime: new Date().toLocaleTimeString(),
     }));
   };
 
@@ -367,17 +393,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Auto-sync dispatcher: dispatches in the background without freezing or requiring button clicks
   const dispatchAutoSync = async (eventType: string, payload: any) => {
-    if (!sheetSyncState.autoSyncEnabled || !sheetSyncState.webhookUrl) {
+    const targetUrl = sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL;
+    if (!sheetSyncState.autoSyncEnabled || !targetUrl) {
       return;
     }
 
     try {
       setSheetSyncState((prev) => ({ ...prev, status: 'syncing' }));
 
-      // Google Apps Script Web Apps receive POST in no-cors or JSON
-      await fetch(sheetSyncState.webhookUrl, {
+      // Google Apps Script Web Apps receive POST in no-cors with keepalive
+      await fetch(targetUrl, {
         method: 'POST',
         mode: 'no-cors',
+        keepalive: true,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -407,7 +435,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Periodic background heartbeat sync every 60 seconds (Auto-syncs live on Git / Production)
   useEffect(() => {
-    if (!sheetSyncState.autoSyncEnabled || !sheetSyncState.webhookUrl) return;
+    const activeUrl = sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL;
+    if (!sheetSyncState.autoSyncEnabled || !activeUrl) return;
     const interval = setInterval(() => {
       dispatchAutoSync('BACKGROUND_HEARTBEAT_SYNC', {
         ordersCount: orders.length,
@@ -419,12 +448,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [sheetSyncState.autoSyncEnabled, sheetSyncState.webhookUrl, orders.length, allocations.length]);
 
   const triggerManualSheetSync = async (): Promise<boolean> => {
-    if (!sheetSyncState.webhookUrl) return false;
-    await dispatchAutoSync('FULL_SNAPSHOT', {
-      ordersCount: orders.length,
-      allocationsCount: allocations.length,
-      backlogCount: idooBacklog.length,
-      ledgerCount: ledger.length,
+    const targetUrl = sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL;
+    if (!targetUrl) return false;
+    await dispatchAutoSync('CUSTOMER_ORDER_PLACED', {
+      orderNumber: orders[0]?.orderNumber || 'SYNC-TEST',
+      totalPcs: orders[0]?.totalPcs || 0,
+      totalWholesaleValue: orders[0]?.totalWholesaleValue || 0,
+      status: orders[0]?.status || 'Verified Live',
+      itemsSummary: `System Live Snapshot: ${orders.length} orders, ${allocations.length} allocations, ${inventory.length} price list items`,
     });
     return true;
   };
@@ -446,11 +477,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Product Analytics Calculation (incorporating Combined vs Specific Store)
   const productAnalytics = useMemo(() => {
-    // Unique items from Wichita inventory
+    // Unique items from Wichita inventory and allocations
     const uniqueMap = new Map<string, InventoryItem>();
     inventory.forEach((item) => {
       if (!uniqueMap.has(item.item)) {
         uniqueMap.set(item.item, item);
+      }
+    });
+
+    // Also include any items present in allocations that may not be in inventory table
+    allocations.forEach((alloc) => {
+      if (!uniqueMap.has(alloc.itemSku)) {
+        uniqueMap.set(alloc.itemSku, {
+          id: `inv-alloc-${alloc.itemSku}`,
+          custno: selectedStoreId,
+          company: 'Wichita Central Warehouse',
+          marketid: 'WICHITA',
+          region: 'WICHITA',
+          item: alloc.itemSku,
+          manufacturer: alloc.manufacturer || 'METRO',
+          color: 'STANDARD',
+          prodline: 'METROPCS',
+          category: 'PHONES',
+          subclass: 'SMARTPHONE',
+          itmdesc: alloc.itmdesc,
+          serialized: true,
+          price: 199.99,
+          qty: alloc.availablePcs,
+          cost: 150.0,
+          lastcost: 150.0,
+          wholesale: 160.0,
+          adddate: '3/1/26',
+        });
       }
     });
 
@@ -751,7 +809,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIdooBacklog((prev) => [...newBacklogItems, ...prev]);
     }
 
-    dispatchAutoSync('NEW_ORDER', newOrder);
+    dispatchAutoSync('CUSTOMER_ORDER_PLACED', {
+      order: newOrder,
+      ...newOrder,
+      itemsSummary: newOrder.items
+        .map((it) => `${it.itmdesc} (x${it.orderedQty} pcs)`)
+        .join(', '),
+    });
 
     return { success: true, orderId };
   };
@@ -845,11 +909,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       })
     );
 
-    dispatchAutoSync('ORDER_PROCESSED_IDOO', {
+    const targetUpdated = updatedOrders.find((o) => o.id === orderId);
+
+    dispatchAutoSync('ORDER_PROCESSED', {
+      order: targetUpdated || targetOrder,
       orderId,
       idooOrderNumber,
       invoiceAmount,
+      idooInvoiceAmount: invoiceAmount,
       orderNumber: targetOrder.orderNumber,
+      totalPcs: targetOrder.totalPcs,
+      totalWholesaleValue: targetOrder.totalWholesaleValue,
+      status: 'IDOO Confirmed',
     });
 
     return { success: true };
@@ -937,6 +1008,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
     dispatchAutoSync('ORDER_CANCELLED', { orderId, reason });
+  };
+
+  const deleteOrder = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      // Release allocations if held in reserved
+      if (order.status !== 'Cancelled' && order.status !== 'Rejected' && order.status !== 'Shipped / Fulfilled') {
+        setAllocations((prevAlloc) =>
+          prevAlloc.map((a) => {
+            const orderedItem = order.items.find((it) => it.itemSku === a.itemSku);
+            if (orderedItem && orderedItem.availableFromAllocation > 0) {
+              const restoredReserved = Math.max(0, a.reservedPcs - orderedItem.availableFromAllocation);
+              return {
+                ...a,
+                reservedPcs: restoredReserved,
+                availablePcs: a.totalPcs - restoredReserved,
+              };
+            }
+            return a;
+          })
+        );
+      }
+      // Clean up backlog entries for this order
+      setIdooBacklog((prev) => prev.filter((b) => b.orderId !== orderId));
+      // Delete order permanently
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      dispatchAutoSync('ORDER_DELETED', { orderId, orderNumber: order.orderNumber });
+    }
   };
 
   const editAndFinalizeOrder = (
@@ -1287,7 +1386,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateMarketBudgetLimit,
         recordCustomerPayment,
         updateCreditLimit,
+        deleteOrder,
         resetToInitialData,
+        adminPassword,
+        updateAdminPassword,
         sheetSyncState,
         updateSheetWebhookUrl,
         toggleAutoSync,

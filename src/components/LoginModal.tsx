@@ -40,11 +40,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const success = loginAsAdmin(adminPin || 'admin');
+    if (!adminPin.trim()) {
+      setErrorMessage('Please enter the administrator password.');
+      return;
+    }
+    const success = loginAsAdmin(adminPin.trim());
     if (success) {
+      setErrorMessage(null);
+      setAdminPin('');
       if (onClose) onClose();
     } else {
-      setErrorMessage('Invalid administrator credentials.');
+      setErrorMessage('Access Denied: Incorrect administrator password. Customers cannot access admin panel.');
     }
   };
 
@@ -157,7 +163,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  placeholder="Enter administrator PIN (e.g. admin or 1234)"
+                  placeholder="Enter administrator password"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-10 pr-3 py-2.5 text-xs focus:bg-white focus:outline-none focus:border-indigo-600 shadow-xs"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomerOrderHistory } from './CustomerOrderHistory';
 import {
@@ -38,7 +38,7 @@ export const CustomerPortal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [catalogFilter, setCatalogFilter] = useState<'TOP' | 'ALLOCATION' | 'ALL'>('ALL');
-  const [categoryType, setCategoryType] = useState<'PHONES' | 'ALL_ITEMS'>('PHONES');
+  const [categoryType, setCategoryType] = useState<'ALL_ITEMS' | 'PHONES' | 'BTS' | 'SIM CARD'>('ALL_ITEMS');
 
   // Cart State (SKU -> Quantity in pcs)
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -47,12 +47,23 @@ export const CustomerPortal: React.FC = () => {
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<string | null>(null);
 
-  const manufacturers = ['ALL', 'APPLE', 'SAMSUNG', 'MOTOROLA', 'TCL'];
+  // Dynamic manufacturers from all price list items
+  const manufacturers = useMemo(() => {
+    const list = new Set<string>();
+    productAnalytics.forEach((p) => {
+      if (p.manufacturer) list.add(p.manufacturer.toUpperCase());
+    });
+    return ['ALL', ...Array.from(list)];
+  }, [productAnalytics]);
 
-  // Base list depending on Category Type
-  const baseItems = categoryType === 'PHONES'
-    ? productAnalytics.filter((p) => p.category === 'PHONES')
-    : productAnalytics;
+  // Base list containing all items or category filtered
+  const baseItems = useMemo(() => {
+    if (categoryType === 'ALL_ITEMS') return productAnalytics;
+    if (categoryType === 'PHONES') return productAnalytics.filter((p) => p.category === 'PHONES');
+    if (categoryType === 'BTS') return productAnalytics.filter((p) => p.category === 'BTS');
+    if (categoryType === 'SIM CARD') return productAnalytics.filter((p) => p.category === 'SIM CARD');
+    return productAnalytics;
+  }, [categoryType, productAnalytics]);
 
   // Filtered & Sorted products
   const filteredProducts = baseItems
@@ -365,10 +376,20 @@ export const CustomerPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Category Toggle (Phones vs All Price List items) */}
+              {/* Category Toggle (All Items vs Phones vs Tablets vs SIMs) */}
               <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-semibold">Catalog View:</span>
+                <span className="text-slate-500 font-semibold">Category:</span>
                 <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                  <button
+                    onClick={() => setCategoryType('ALL_ITEMS')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      categoryType === 'ALL_ITEMS'
+                        ? 'bg-pink-600 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All Items ({productAnalytics.length})
+                  </button>
                   <button
                     onClick={() => setCategoryType('PHONES')}
                     className={`px-2.5 py-1 rounded-md transition-colors ${
@@ -377,17 +398,27 @@ export const CustomerPortal: React.FC = () => {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Phones Only (Orderable)
+                    Phones
                   </button>
                   <button
-                    onClick={() => setCategoryType('ALL_ITEMS')}
+                    onClick={() => setCategoryType('BTS')}
                     className={`px-2.5 py-1 rounded-md transition-colors ${
-                      categoryType === 'ALL_ITEMS'
-                        ? 'bg-white text-slate-900 font-bold shadow-xs'
+                      categoryType === 'BTS'
+                        ? 'bg-pink-600 text-white font-bold shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Complete Price List
+                    Tablets &amp; Gateways
+                  </button>
+                  <button
+                    onClick={() => setCategoryType('SIM CARD')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      categoryType === 'SIM CARD'
+                        ? 'bg-pink-600 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    SIM Cards
                   </button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, DEFAULT_SHEET_WEBHOOK_URL } from '../context/AppContext';
 import {
   FileSpreadsheet,
   Download,
@@ -38,7 +38,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'sync' | 'deploy'>('sync');
-  const [webhookInput, setWebhookInput] = useState(sheetSyncState.webhookUrl || '');
+  const [webhookInput, setWebhookInput] = useState(sheetSyncState.webhookUrl || DEFAULT_SHEET_WEBHOOK_URL);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [isTestingSync, setIsTestingSync] = useState(false);
@@ -186,22 +186,31 @@ function doPost(e) {
     var payload = JSON.parse(contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. Auto-handle Orders
-    if (payload.eventType === "CUSTOMER_ORDER_PLACED" || payload.eventType === "ORDER_PROCESSED") {
+    // 1. Auto-handle Orders (Customer placed or Admin processed)
+    if (payload.eventType === "CUSTOMER_ORDER_PLACED" || payload.eventType === "NEW_ORDER" || payload.eventType === "ORDER_PROCESSED" || payload.eventType === "ORDER_ACCEPTED" || payload.eventType === "ORDER_FINALIZED_EDIT") {
       var ordersSheet = ss.getSheetByName("Customer_Orders") || ss.insertSheet("Customer_Orders");
       if (ordersSheet.getLastRow() === 0) {
-        ordersSheet.appendRow(["Timestamp", "Order Number", "Territory", "Total Units (Pcs)", "Wholesale Value", "Status", "IDOO Number", "Billed Amount"]);
+        ordersSheet.appendRow(["Timestamp", "Order Number", "Territory / Store", "Total Units (Pcs)", "Wholesale Value", "Status", "IDOO Number", "Billed Amount", "Items Details"]);
       }
       var ord = payload.data.order || payload.data;
+      var itemsDesc = "";
+      if (ord.items && ord.items.length > 0) {
+        itemsDesc = ord.items.map(function(it) {
+          return (it.itmdesc || it.itemSku) + " (" + (it.orderedQty || it.quantityOrdered || 0) + " pcs)";
+        }).join("; ");
+      } else if (payload.data.itemsSummary) {
+        itemsDesc = payload.data.itemsSummary;
+      }
       ordersSheet.appendRow([
         new Date(),
         ord.orderNumber || "",
-        "Wichita, KS",
+        ord.storeName || ord.customerName || "Wichita, KS",
         ord.totalPcs || 0,
         ord.totalWholesaleValue || 0,
         ord.status || "Pending Review",
         ord.idooOrderNumber || "",
-        ord.idooInvoiceAmount || 0
+        ord.idooInvoiceAmount || ord.invoiceAmount || 0,
+        itemsDesc
       ]);
     }
 
@@ -233,8 +242,32 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({ status: "online", app: "Wichita Wireless Hub Google Sheet Sync" }))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var action = (e && e.parameter && e.parameter.action) || "";
+    if (action === "getItems" || action === "getPricelist") {
+      var sheet = ss.getSheetByName("Price_List") || ss.getSheetByName("Pricelist") || ss.getSheetByName("Items");
+      if (sheet) {
+        var data = sheet.getDataRange().getValues();
+        var headers = data[0];
+        var rows = [];
+        for (var i = 1; i < data.length; i++) {
+          var rowObj = {};
+          for (var j = 0; j < headers.length; j++) {
+            rowObj[headers[j]] = data[i][j];
+          }
+          rows.push(rowObj);
+        }
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", items: rows }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ status: "online", app: "Wichita Wireless Hub Google Sheet Sync" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }`;
 
   return (

@@ -150,18 +150,20 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Google Sheets Sync & Git Deploy Guide Button */}
-            <button
-              onClick={onOpenSyncModal}
-              title="Google Sheet Live Sync & GitHub Deployment Guide"
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-emerald-700 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span className="hidden lg:inline">Sheets &amp; Deploy</span>
-              {sheetSyncState.webhookUrl && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Auto-Sync Active"></span>
-              )}
-            </button>
+            {/* Google Sheets Sync & Git Deploy Guide Button (ADMIN ONLY) */}
+            {isAdmin && (
+              <button
+                onClick={onOpenSyncModal}
+                title="Google Sheet Live Sync & GitHub Deployment Guide"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-emerald-700 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span className="hidden lg:inline">Sheets &amp; Deploy</span>
+                {sheetSyncState.webhookUrl && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Auto-Sync Active"></span>
+                )}
+              </button>
+            )}
 
             {/* Cart Trigger (for Customer) */}
             {!isAdmin && onOpenCart && (
@@ -179,18 +181,20 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Reset Data */}
-            <button
-              onClick={() => {
-                if (window.confirm('Reset all portal records back to original Wichita dataset?')) {
-                  resetToInitialData();
-                }
-              }}
-              title="Reset Demo Data"
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-600 border border-slate-200 transition-colors shadow-xs"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            {/* Reset / Restart Portal Data (ADMIN ONLY) */}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Reset all portal records back to original Wichita dataset?')) {
+                    resetToInitialData();
+                  }
+                }}
+                title="Reset Portal Data (Admin Only)"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-600 border border-slate-200 transition-colors shadow-xs"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

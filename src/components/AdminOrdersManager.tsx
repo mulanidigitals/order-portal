@@ -25,6 +25,7 @@ export const AdminOrdersManager: React.FC = () => {
     acceptOrder,
     rejectOrder,
     cancelOrder,
+    deleteOrder,
     editAndFinalizeOrder,
     productAnalytics,
   } = useApp();
@@ -40,11 +41,12 @@ export const AdminOrdersManager: React.FC = () => {
   const [modalNotes, setModalNotes] = useState('');
   const [processingError, setProcessingError] = useState<string | null>(null);
 
-  // Reject / Cancel in-app modal state (no window.prompt!)
+  // Reject / Cancel / Delete in-app modal state (no window.prompt!)
   const [rejectModalOrder, setRejectModalOrder] = useState<CustomerOrder | null>(null);
   const [rejectReason, setRejectReason] = useState('Stock unavailable at carrier distributor');
   const [cancelModalOrder, setCancelModalOrder] = useState<CustomerOrder | null>(null);
   const [cancelReason, setCancelReason] = useState('Order cancelled by dealer request');
+  const [deleteModalOrder, setDeleteModalOrder] = useState<CustomerOrder | null>(null);
 
   // Edit & Finalize Order Modal State
   const [editingOrder, setEditingOrder] = useState<CustomerOrder | null>(null);
@@ -391,12 +393,21 @@ export const AdminOrdersManager: React.FC = () => {
                               setCancelModalOrder(order);
                               setCancelReason('Order cancelled by dealer request');
                             }}
-                            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors"
+                            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-amber-600 transition-colors"
                             title="Cancel Order"
                           >
                             <Ban className="w-3.5 h-3.5" />
                           </button>
                         )}
+
+                        {/* Permanent Delete Order Button (Admin Only) */}
+                        <button
+                          onClick={() => setDeleteModalOrder(order)}
+                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Delete Order (Admin Exclusive)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -406,6 +417,43 @@ export const AdminOrdersManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Order In-App Modal (Admin Only) */}
+      {deleteModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full shadow-2xl p-6 text-xs animate-in zoom-in-95">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-600" />
+              <span>Delete Order #{deleteModalOrder.orderNumber}</span>
+            </h3>
+            <p className="text-slate-600 mb-2">
+              Are you sure you want to permanently delete this order?
+            </p>
+            <div className="bg-rose-50 p-3 rounded-xl border border-rose-200 text-rose-800 text-[11px] mb-4 space-y-1">
+              <p>• Reserved allocations will be released back to available inventory.</p>
+              <p>• Corresponding shortage backlog items will be removed.</p>
+              <p>• This action is permanent and only available to administrators.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteModalOrder(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteOrder(deleteModalOrder.id);
+                  setDeleteModalOrder(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-bold"
+              >
+                Yes, Delete Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject Order In-App Modal */}
       {rejectModalOrder && (

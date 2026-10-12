@@ -16,6 +16,10 @@ import {
   CreditCard,
   DollarSign,
   Tag,
+  KeyRound,
+  RotateCcw,
+  CheckCircle2,
+  Lock,
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -26,11 +30,43 @@ export const AdminDashboard: React.FC = () => {
     isCombinedStore,
     pendingOrdersCount,
     openIdooShortagesCount,
+    adminPassword,
+    updateAdminPassword,
+    resetToInitialData,
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'orders' | 'shortages' | 'allocations' | 'forecast' | 'ledger' | 'budget' | 'pricelist'
+    'orders' | 'shortages' | 'allocations' | 'forecast' | 'ledger' | 'budget' | 'pricelist' | 'security'
   >('orders');
+
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordSuccessMessage, setPasswordSuccessMessage] = useState<string | null>(null);
+  const [passwordErrorMessage, setPasswordErrorMessage] = useState<string | null>(null);
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrorMessage(null);
+    setPasswordSuccessMessage(null);
+
+    if (newPasswordInput.trim().length < 6) {
+      setPasswordErrorMessage('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPasswordInput.trim() !== confirmPasswordInput.trim()) {
+      setPasswordErrorMessage('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    const success = updateAdminPassword(newPasswordInput.trim());
+    if (success) {
+      setPasswordSuccessMessage('Administrator password updated successfully! Keep it confidential.');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+    } else {
+      setPasswordErrorMessage('Failed to update password.');
+    }
+  };
 
   const totalInventoryUnits = inventory.reduce((sum, i) => sum + i.qty, 0);
   const totalInventoryCost = inventory.reduce((sum, i) => sum + i.qty * i.wholesale, 0);
@@ -174,6 +210,18 @@ export const AdminDashboard: React.FC = () => {
           <DollarSign className="w-4 h-4" />
           <span>Market IDOO Cap</span>
         </button>
+
+        <button
+          onClick={() => setActiveAdminTab('security')}
+          className={`py-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
+            activeAdminTab === 'security'
+              ? 'border-rose-600 text-rose-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          <span>Admin Password &amp; Reset</span>
+        </button>
       </div>
 
       {/* Tab Panels */}
@@ -184,6 +232,121 @@ export const AdminDashboard: React.FC = () => {
       {activeAdminTab === 'forecast' && <SalesForecastReports />}
       {activeAdminTab === 'ledger' && <CustomerLedgerManager />}
       {activeAdminTab === 'budget' && <MarketBudgetManager />}
+      {activeAdminTab === 'security' && (
+        <div className="space-y-6">
+          {/* Security & Password Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs max-w-2xl">
+            <div className="flex items-center gap-3 mb-4 border-b border-slate-200 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Administrator Password &amp; Access Control
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Customers cannot login to the admin panel. Change your executive password here anytime.
+                </p>
+              </div>
+            </div>
+
+            {passwordSuccessMessage && (
+              <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-900 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{passwordSuccessMessage}</span>
+              </div>
+            )}
+
+            {passwordErrorMessage && (
+              <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-900 p-3.5 rounded-2xl text-xs font-semibold">
+                {passwordErrorMessage}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Current Active Password:
+                </label>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-800 flex items-center justify-between">
+                  <span>{adminPassword}</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-sans font-bold">
+                    Protected Admin Credential
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  New Administrator Password:
+                </label>
+                <input
+                  type="password"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  placeholder="Enter new strong password (min 6 characters)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Confirm New Password:
+                </label>
+                <input
+                  type="password"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  placeholder="Re-type new password"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="py-3 px-5 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all flex items-center gap-2"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Save New Admin Password</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Reset / Restart Portal Data (Exclusive to Admin) */}
+          <div className="bg-white border border-rose-200 rounded-3xl p-6 shadow-xs max-w-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center">
+                <RotateCcw className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Restart / Reset Portal Data (Admin Only)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  This option has been completely removed from customer view. Only administrators can perform a reset.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+              Resetting will clear all local changes and restore original Wichita inventory, default allocations, initial customer account balance, and demo data.
+            </p>
+
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to reset all data back to original Wichita dataset?')) {
+                  resetToInitialData();
+                  alert('Portal reset back to initial Wichita records.');
+                }
+              }}
+              className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Reset &amp; Restart All Portal Data</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
