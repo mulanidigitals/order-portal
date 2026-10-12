@@ -196,6 +196,17 @@ export const AdminOrdersManager: React.FC = () => {
     0
   );
 
+  // Wichita Territory Stock Overview
+  const totalWichitaStoresInvExclHq = productAnalytics.reduce(
+    (sum, p) => sum + p.storesInventoryExclHq,
+    0
+  );
+  const totalWichitaHubInvTtlwichhq = productAnalytics.reduce(
+    (sum, p) => sum + p.hubInventoryTtlwichhq,
+    0
+  );
+  const totalWichitaInventorySum = totalWichitaStoresInvExclHq + totalWichitaHubInvTtlwichhq;
+
   return (
     <div className="space-y-6">
       {/* Header and Filter */}
@@ -230,7 +241,46 @@ export const AdminOrdersManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Orders Table (Store details removed as per user instruction) */}
+      {/* Wichita Inventory Overview Bar (Stores vs Hub TTLWICHHQ) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            Wichita Stores Inv (Excl TTLWICHHQ)
+          </span>
+          <p className="text-xl font-black text-slate-900 font-mono mt-1">
+            {totalWichitaStoresInvExclHq.toLocaleString()} pcs
+          </p>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            Available across Wichita store branches
+          </span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            Wichita Hub Inv (TTLWICHHQ)
+          </span>
+          <p className="text-xl font-black text-indigo-700 font-mono mt-1">
+            {totalWichitaHubInvTtlwichhq.toLocaleString()} pcs
+          </p>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            Available at Wichita Central Hub
+          </span>
+        </div>
+
+        <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider block">
+            Total Combined Wichita Inventory
+          </span>
+          <p className="text-xl font-black text-emerald-700 font-mono mt-1">
+            {totalWichitaInventorySum.toLocaleString()} pcs
+          </p>
+          <span className="text-[10px] text-indigo-600 mt-0.5 block">
+            Stores ({totalWichitaStoresInvExclHq}) + Hub ({totalWichitaHubInvTtlwichhq})
+          </span>
+        </div>
+      </div>
+
+      {/* Orders Table */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
         {filteredOrders.length === 0 ? (
           <div className="text-center py-16 text-slate-400">
@@ -249,6 +299,7 @@ export const AdminOrdersManager: React.FC = () => {
                   <th className="py-3.5 px-4">Order Date</th>
                   <th className="py-3.5 px-4 text-center">Units (Pcs)</th>
                   <th className="py-3.5 px-4">Allocation vs Shortage</th>
+                  <th className="py-3.5 px-4">Wichita Inv Context</th>
                   <th className="py-3.5 px-4">Wholesale Total</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">IDOO Details</th>
@@ -260,6 +311,16 @@ export const AdminOrdersManager: React.FC = () => {
                   const hasShortage = order.shortageTotalPcs > 0;
                   const isPending = order.status === 'Pending Review';
                   const isApproved = order.status === 'Approved' || order.status === 'IDOO Shortage Pending';
+
+                  // Compute order items stock in Wichita stores vs Hub TTLWICHHQ
+                  const orderStoresInv = order.items.reduce((sum, it) => {
+                    const prod = productAnalytics.find((p) => p.itemSku === it.itemSku);
+                    return sum + (prod ? prod.storesInventoryExclHq : 0);
+                  }, 0);
+                  const orderHubInv = order.items.reduce((sum, it) => {
+                    const prod = productAnalytics.find((p) => p.itemSku === it.itemSku);
+                    return sum + (prod ? prod.hubInventoryTtlwichhq : 0);
+                  }, 0);
 
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
@@ -288,6 +349,18 @@ export const AdminOrdersManager: React.FC = () => {
                               ⚠️ {order.shortageTotalPcs} pcs Shortage
                             </span>
                           )}
+                        </div>
+                      </td>
+
+                      {/* Wichita Inv Context (Stores vs Hub TTLWICHHQ) */}
+                      <td className="py-3.5 px-4 font-sans text-[11px]">
+                        <div className="space-y-0.5">
+                          <span className="text-slate-700 block font-mono">
+                            Stores: <strong className="text-slate-900">{orderStoresInv} pcs</strong>
+                          </span>
+                          <span className="text-indigo-700 block font-mono">
+                            Hub: <strong className="text-indigo-950">{orderHubInv} pcs</strong>
+                          </span>
                         </div>
                       </td>
 
@@ -572,6 +645,8 @@ export const AdminOrdersManager: React.FC = () => {
                   <thead className="bg-slate-100 text-slate-500 text-[11px] uppercase">
                     <tr>
                       <th className="p-3">Phone Description</th>
+                      <th className="p-3 text-center">Stores Inv (Excl HQ)</th>
+                      <th className="p-3 text-center">Hub (TTLWICHHQ)</th>
                       <th className="p-3 text-center">Quantity (Pcs)</th>
                       <th className="p-3 text-right">Wholesale Price</th>
                       <th className="p-3 text-right">Line Total</th>
@@ -579,57 +654,66 @@ export const AdminOrdersManager: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-mono">
-                    {editItems.map((item) => (
-                      <tr key={item.itemSku} className="hover:bg-white">
-                        <td className="p-3 font-sans">
-                          <span className="font-bold text-slate-900 block max-w-xs truncate">{item.itmdesc}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">SKU: {item.itemSku}</span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="inline-flex items-center gap-1">
+                    {editItems.map((item) => {
+                      const prod = productAnalytics.find((p) => p.itemSku === item.itemSku);
+                      return (
+                        <tr key={item.itemSku} className="hover:bg-white">
+                          <td className="p-3 font-sans">
+                            <span className="font-bold text-slate-900 block max-w-xs truncate">{item.itmdesc}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">SKU: {item.itemSku}</span>
+                          </td>
+                          <td className="p-3 text-center font-bold text-slate-700">
+                            {prod ? `${prod.storesInventoryExclHq} pcs` : '-'}
+                          </td>
+                          <td className="p-3 text-center font-bold text-indigo-700">
+                            {prod ? `${prod.hubInventoryTtlwichhq} pcs` : '-'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditItemQty(item.itemSku, Math.max(1, item.orderedQty - 1))}
+                                className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.orderedQty}
+                                onChange={(e) =>
+                                  handleEditItemQty(item.itemSku, parseInt(e.target.value) || 0)
+                                }
+                                className="w-14 bg-white border border-slate-300 rounded-lg p-1 text-center text-slate-900 font-bold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleEditItemQty(item.itemSku, item.orderedQty + 1)}
+                                className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right text-slate-600">
+                            ${item.wholesalePrice.toFixed(2)}
+                          </td>
+                          <td className="p-3 text-right font-bold text-emerald-700">
+                            ${(item.wholesalePrice * item.orderedQty).toLocaleString()}
+                          </td>
+                          <td className="p-3 text-center">
                             <button
                               type="button"
-                              onClick={() => handleEditItemQty(item.itemSku, Math.max(1, item.orderedQty - 1))}
-                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
+                              onClick={() => handleRemoveEditItem(item.itemSku)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete item from this PO"
                             >
-                              -
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.orderedQty}
-                              onChange={(e) =>
-                                handleEditItemQty(item.itemSku, parseInt(e.target.value) || 0)
-                              }
-                              className="w-14 bg-white border border-slate-300 rounded-lg p-1 text-center text-slate-900 font-bold"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleEditItemQty(item.itemSku, item.orderedQty + 1)}
-                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right text-slate-600">
-                          ${item.wholesalePrice.toFixed(2)}
-                        </td>
-                        <td className="p-3 text-right font-bold text-emerald-700">
-                          ${(item.wholesalePrice * item.orderedQty).toLocaleString()}
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEditItem(item.itemSku)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Delete item from this PO"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -644,7 +728,7 @@ export const AdminOrdersManager: React.FC = () => {
                   <option value="">Select an item from complete price list to add to this PO...</option>
                   {productAnalytics.map((p) => (
                     <option key={p.itemSku} value={p.itemSku}>
-                      {p.itmdesc} [${p.wholesale.toFixed(2)} | In Alloc: {p.availableAllocationPcs} pcs] ({p.category})
+                      {p.itmdesc} [Stores: {p.storesInventoryExclHq} | Hub: {p.hubInventoryTtlwichhq} | Alloc: {p.availableAllocationPcs} pcs | ${p.wholesale.toFixed(2)}]
                     </option>
                   ))}
                 </select>
@@ -876,10 +960,10 @@ export const AdminOrdersManager: React.FC = () => {
         </div>
       )}
 
-      {/* View Items Detail Modal (Store info omitted) */}
+      {/* View Items Detail Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-xl w-full shadow-2xl p-6 text-xs max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full shadow-2xl p-6 text-xs max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
               <div>
                 <span className="text-pink-700 font-mono font-bold text-sm">
@@ -925,7 +1009,7 @@ export const AdminOrdersManager: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 mb-2">Item Allocation Breakdown</h4>
+                <h4 className="font-bold text-slate-900 mb-2">Item Allocation Breakdown &amp; Inventory Context</h4>
                 <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100 text-slate-500 text-[11px] uppercase">
@@ -934,24 +1018,35 @@ export const AdminOrdersManager: React.FC = () => {
                         <th className="p-3 text-center">Ordered</th>
                         <th className="p-3 text-center">In Allocation</th>
                         <th className="p-3 text-center">IDOO Shortage</th>
+                        <th className="p-3 text-center">Stores Inv (Excl HQ)</th>
+                        <th className="p-3 text-center">Hub (TTLWICHHQ)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 font-mono">
-                      {selectedOrder.items.map((it, idx) => (
-                        <tr key={idx}>
-                          <td className="p-3 font-sans">
-                            <span className="font-bold text-slate-900 block">{it.itmdesc}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">SKU: {it.itemSku}</span>
-                          </td>
-                          <td className="p-3 text-center font-black text-slate-900">{it.orderedQty} pcs</td>
-                          <td className="p-3 text-center text-emerald-700 font-semibold">
-                            {it.availableFromAllocation} pcs
-                          </td>
-                          <td className="p-3 text-center text-amber-700 font-semibold">
-                            {it.shortageQty > 0 ? `${it.shortageQty} pcs` : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {selectedOrder.items.map((it, idx) => {
+                        const prod = productAnalytics.find((p) => p.itemSku === it.itemSku);
+                        return (
+                          <tr key={idx}>
+                            <td className="p-3 font-sans">
+                              <span className="font-bold text-slate-900 block">{it.itmdesc}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">SKU: {it.itemSku}</span>
+                            </td>
+                            <td className="p-3 text-center font-black text-slate-900">{it.orderedQty} pcs</td>
+                            <td className="p-3 text-center text-emerald-700 font-semibold">
+                              {it.availableFromAllocation} pcs
+                            </td>
+                            <td className="p-3 text-center text-amber-700 font-semibold">
+                              {it.shortageQty > 0 ? `${it.shortageQty} pcs` : '-'}
+                            </td>
+                            <td className="p-3 text-center text-slate-700 font-bold">
+                              {prod ? `${prod.storesInventoryExclHq} pcs` : '-'}
+                            </td>
+                            <td className="p-3 text-center text-indigo-700 font-bold">
+                              {prod ? `${prod.hubInventoryTtlwichhq} pcs` : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

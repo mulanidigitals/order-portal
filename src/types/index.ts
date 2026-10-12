@@ -150,12 +150,16 @@ export interface ProductAnalytics {
   price: number;
   wholesale: number;
   currentInventory: number;
-  availableAllocationPcs: number;
+  storesInventoryExclHq: number; // a - Store quantites available in Wichita (excluding TTLWICHHQ)
+  hubInventoryTtlwichhq: number; // b - HUB - TTLWICHHQ
+  totalWichitaInventory: number; // (a + b)
+  netWichitaInventory: number; // d - Wichita inventory (a+b) - c
+  availableAllocationPcs: number; // g - Qty available in allocation
   customerPreviousOrdersPcs: number;
-  last7DaysSalesPcs: number;
+  last7DaysSalesPcs: number; // c - 7 Days Sales
   last14DaysSalesPcs: number;
-  projected2WeeksDemandPcs: number;
-  projected3WeeksDemandPcs: number;
+  projected2WeeksDemandPcs: number; // e - 2 wk forecast
+  projected3WeeksDemandPcs: number; // f - 3 wk forecast
   weeksOfSupply: number; // current inventory / weekly sales rate
   recommendedOrderQtyPcs: number;
   overOrderingRisk: boolean;

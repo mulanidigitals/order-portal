@@ -803,8 +803,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 2, // 2 packs = 40 pcs (iPhone rule)
     packUnitSize: 20,
     totalPcs: 40,
-    reservedPcs: 8,
-    availablePcs: 32,
+    reservedPcs: 0,
+    availablePcs: 40,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -816,8 +816,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 1, // 1 pack = 20 pcs
     packUnitSize: 20,
     totalPcs: 20,
-    reservedPcs: 5,
-    availablePcs: 15,
+    reservedPcs: 0,
+    availablePcs: 20,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -829,8 +829,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 6, // 6 packs * 5 = 30 pcs
     packUnitSize: 5,
     totalPcs: 30,
-    reservedPcs: 6,
-    availablePcs: 24,
+    reservedPcs: 0,
+    availablePcs: 30,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -842,8 +842,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 7, // 7 packs * 5 = 35 pcs
     packUnitSize: 5,
     totalPcs: 35,
-    reservedPcs: 10,
-    availablePcs: 25,
+    reservedPcs: 0,
+    availablePcs: 35,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -855,8 +855,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 5, // 5 packs * 5 = 25 pcs
     packUnitSize: 5,
     totalPcs: 25,
-    reservedPcs: 4,
-    availablePcs: 21,
+    reservedPcs: 0,
+    availablePcs: 25,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -868,8 +868,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 8, // 8 packs * 5 = 40 pcs
     packUnitSize: 5,
     totalPcs: 40,
-    reservedPcs: 12,
-    availablePcs: 28,
+    reservedPcs: 0,
+    availablePcs: 40,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -881,8 +881,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 3, // 3 packs * 5 = 15 pcs
     packUnitSize: 5,
     totalPcs: 15,
-    reservedPcs: 3,
-    availablePcs: 12,
+    reservedPcs: 0,
+    availablePcs: 15,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -894,8 +894,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 4, // 4 packs * 5 = 20 pcs
     packUnitSize: 5,
     totalPcs: 20,
-    reservedPcs: 2,
-    availablePcs: 18,
+    reservedPcs: 0,
+    availablePcs: 20,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },
@@ -907,8 +907,8 @@ export const INITIAL_ALLOCATIONS: AllocationItem[] = [
     packs: 1, // 1 pack = 20 pcs
     packUnitSize: 20,
     totalPcs: 20,
-    reservedPcs: 8,
-    availablePcs: 12,
+    reservedPcs: 5, // 5 pcs reserved for active unshipped order WICH-ORD-903429
+    availablePcs: 15,
     lastUpdated: 'Today at 08:30 AM',
     sourceNote: 'IDOO Weekly Allocation Sheet',
   },

@@ -287,6 +287,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
   }, [orders]);
 
+  // Synchronize allocation reserved quantities to strictly reflect ONLY active unshipped orders:
+  // "reserevce quantites sirf woh aai jis ka order abi ship nai hua -, agar order ship hogaya tau reserve nai aana chahiye"
+  useEffect(() => {
+    setAllocations((prevAlloc) => {
+      let hasChanges = false;
+      const updated = prevAlloc.map((a) => {
+        const activeUnshippedReserved = orders
+          .filter(
+            (o) =>
+              o.status !== 'Shipped / Fulfilled' &&
+              o.status !== 'Cancelled' &&
+              o.status !== 'Rejected'
+          )
+          .reduce((sum, o) => {
+            const it = o.items.find((item) => item.itemSku === a.itemSku);
+            return sum + (it ? it.availableFromAllocation || 0 : 0);
+          }, 0);
+
+        if (a.reservedPcs !== activeUnshippedReserved) {
+          hasChanges = true;
+          return {
+            ...a,
+            reservedPcs: activeUnshippedReserved,
+            availablePcs: Math.max(0, a.totalPcs - activeUnshippedReserved),
+          };
+        }
+        return a;
+      });
+      return hasChanges ? updated : prevAlloc;
+    });
+  }, [orders]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.IDOO_BACKLOG, JSON.stringify(idooBacklog));
   }, [idooBacklog]);
@@ -539,9 +571,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const alloc = allocations.find((a) => a.itemSku === sku);
       const availableAllocationPcs = alloc ? Math.max(0, alloc.availablePcs) : 0;
 
+      // a - Store quantities available in Wichita (excluding TTLWICHHQ)
+      const storesInventoryExclHq = inventory
+        .filter((i) => i.item === sku && i.custno !== 'TTLWICHHQ')
+        .reduce((sum, i) => sum + i.qty, 0);
+
+      // b - HUB - TTLWICHHQ
+      const hubInventoryTtlwichhq = inventory
+        .filter((i) => i.item === sku && i.custno === 'TTLWICHHQ')
+        .reduce((sum, i) => sum + i.qty, 0);
+
+      // Total Wichita Inventory (a + b)
+      const totalWichitaInventory = storesInventoryExclHq + hubInventoryTtlwichhq;
+
       // Current inventory: If Combined, sum across ALL Wichita stores! Otherwise specific store
       const storeInv = isCombinedStore
-        ? inventory.filter((i) => i.item === sku).reduce((sum, i) => sum + i.qty, 0)
+        ? totalWichitaInventory
         : inventory
             .filter((i) => i.item === sku && i.custno === selectedStoreId)
             .reduce((sum, i) => sum + i.qty, 0);
@@ -577,6 +622,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const last14DaysSalesPcs = itemSales
         .filter((s) => new Date(s.saleDate) >= fourteenDaysAgo)
         .reduce((sum, s) => sum + s.quantitySold, 0);
+
+      // d - Wichita Net Inventory (a + b) - c
+      const netWichitaInventory = totalWichitaInventory - last7DaysSalesPcs;
 
       // Trend percentage change
       const salesTrendPercentage =
@@ -614,6 +662,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         price: invItem.price,
         wholesale: invItem.wholesale,
         currentInventory: storeInv,
+        storesInventoryExclHq,
+        hubInventoryTtlwichhq,
+        totalWichitaInventory,
+        netWichitaInventory,
         availableAllocationPcs,
         customerPreviousOrdersPcs: prevOrdersPcs,
         last7DaysSalesPcs,
