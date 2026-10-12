@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          var currentFetch = originalFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return currentFetch;
+            },
+            set: function(fn) {
+              currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (err) {}
+
+        window.addEventListener('error', function(e) {
+          if (
+            (e.filename && e.filename.indexOf('chrome-extension://') !== -1) ||
+            (e.message && e.message.indexOf('Cannot set property fetch') !== -1)
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e.reason && e.reason.stack && e.reason.stack.indexOf('chrome-extension://') !== -1) {
+            e.preventDefault();
+          }
+        });
+      })();
+    </script>
+    <title>Wichita Wireless Hub - B2B Phone Allocation &amp; Ordering Portal</title>
+    <meta name="description" content="Enterprise Metro by T-Mobile B2B portal for Wichita stores: phone inventory tracking, allocation screenshot OCR, customer ordering, IDOO backlog management, credit ledger, and supply forecasting." />
+    <meta property="og:title" content="Wichita Wireless Hub - B2B Phone Allocation &amp; Ordering Portal" />
+    <meta property="og:description" content="Enterprise Metro by T-Mobile B2B portal for Wichita stores: phone inventory tracking, allocation screenshot OCR, customer ordering, IDOO backlog management, credit ledger, and supply forecasting." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

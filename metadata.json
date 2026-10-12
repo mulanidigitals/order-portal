@@ -1,0 +1,6 @@
+{
+  "name": "Wichita Wireless Hub - B2B Phone Allocation & Ordering Portal",
+  "description": "Enterprise Metro by T-Mobile B2B portal for Wichita stores: phone inventory tracking, allocation screenshot OCR, customer ordering, IDOO backlog management, credit ledger, and supply forecasting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
