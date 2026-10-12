@@ -17,6 +17,9 @@ import {
   ArrowRight,
   Flame,
   Layers,
+  Truck,
+  Hash,
+  Package,
 } from 'lucide-react';
 
 interface CartItem {
@@ -237,6 +240,44 @@ export const CustomerPortal: React.FC = () => {
             className="text-emerald-700 hover:text-emerald-950 font-bold ml-4"
           >
             Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Latest Order Tracking & IDOO Summary Quick Bar */}
+      {orders.length > 0 && (
+        <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 font-bold text-indigo-950">
+              <Package className="w-4 h-4 text-indigo-600" />
+              <span>Latest Order:</span>
+              <span className="font-mono text-pink-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                #{orders[0].orderNumber}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 font-mono">
+              <Hash className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="font-sans text-slate-500 font-bold">IDOO Order No:</span>
+              <strong className="text-indigo-950">
+                {orders[0].idooOrderNumber || 'Awaiting IDOO Confirmation'}
+              </strong>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-emerald-200 font-mono">
+              <Truck className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="font-sans text-slate-500 font-bold">Tracking No:</span>
+              <strong className={orders[0].trackingNumber ? 'text-emerald-900' : 'text-slate-500'}>
+                {orders[0].trackingNumber ? `${orders[0].trackingNumber} (${orders[0].carrierName || 'UPS'})` : 'Pending Dispatch'}
+              </strong>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('orders')}
+            className="text-indigo-700 hover:text-indigo-950 font-bold text-xs underline shrink-0 self-start sm:self-auto"
+          >
+            View All in Orders History →
           </button>
         </div>
       )}

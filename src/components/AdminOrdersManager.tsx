@@ -38,6 +38,8 @@ export const AdminOrdersManager: React.FC = () => {
   const [orderToProcess, setOrderToProcess] = useState<CustomerOrder | null>(null);
   const [modalIdooNumber, setModalIdooNumber] = useState('');
   const [modalInvoiceAmount, setModalInvoiceAmount] = useState<number | ''>('');
+  const [modalTrackingNumber, setModalTrackingNumber] = useState('');
+  const [modalCarrierName, setModalCarrierName] = useState('UPS Ground');
   const [modalNotes, setModalNotes] = useState('');
   const [processingError, setProcessingError] = useState<string | null>(null);
 
@@ -52,6 +54,9 @@ export const AdminOrdersManager: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<CustomerOrder | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [editNotes, setEditNotes] = useState('');
+  const [editIdooNumber, setEditIdooNumber] = useState('');
+  const [editTrackingNumber, setEditTrackingNumber] = useState('');
+  const [editCarrierName, setEditCarrierName] = useState('UPS Ground');
   const [selectedAddSku, setSelectedAddSku] = useState('');
 
   const filteredOrders = orders.filter((o) => {
@@ -61,8 +66,10 @@ export const AdminOrdersManager: React.FC = () => {
 
   const openProcessModal = (order: CustomerOrder) => {
     setOrderToProcess(order);
-    setModalIdooNumber(`IDOO-${Math.floor(100000 + Math.random() * 900000)}`);
+    setModalIdooNumber(order.idooOrderNumber || `IDOO-${Math.floor(100000 + Math.random() * 900000)}`);
     setModalInvoiceAmount(order.totalWholesaleValue);
+    setModalTrackingNumber(order.trackingNumber || `1Z${Math.floor(1000000000000000 + Math.random() * 9000000000000000)}`);
+    setModalCarrierName(order.carrierName || 'UPS Ground');
     setModalNotes('');
     setProcessingError(null);
     setIsProcessModalOpen(true);
@@ -86,7 +93,9 @@ export const AdminOrdersManager: React.FC = () => {
       orderToProcess.id,
       modalIdooNumber.trim(),
       Number(modalInvoiceAmount),
-      modalNotes.trim()
+      modalNotes.trim(),
+      modalTrackingNumber.trim() || undefined,
+      modalCarrierName
     );
 
     if (res.success) {
@@ -114,6 +123,9 @@ export const AdminOrdersManager: React.FC = () => {
     setEditingOrder(order);
     setEditItems(JSON.parse(JSON.stringify(order.items)));
     setEditNotes(order.notes || '');
+    setEditIdooNumber(order.idooOrderNumber || '');
+    setEditTrackingNumber(order.trackingNumber || '');
+    setEditCarrierName(order.carrierName || 'UPS Ground');
     setSelectedAddSku('');
   };
 
@@ -163,7 +175,14 @@ export const AdminOrdersManager: React.FC = () => {
       return;
     }
 
-    const res = editAndFinalizeOrder(editingOrder.id, editItems, editNotes);
+    const res = editAndFinalizeOrder(
+      editingOrder.id,
+      editItems,
+      editNotes,
+      editIdooNumber.trim() || undefined,
+      editTrackingNumber.trim() || undefined,
+      editCarrierName
+    );
     if (res.success) {
       setEditingOrder(null);
     } else {
@@ -321,23 +340,21 @@ export const AdminOrdersManager: React.FC = () => {
                         {/* View Items */}
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs"
-                          title="View items"
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs"
+                          title="View order items"
                         >
                           View
                         </button>
 
-                        {/* Edit & Finalize Button */}
-                        {order.status !== 'Shipped / Fulfilled' && order.status !== 'Cancelled' && (
-                          <button
-                            onClick={() => openEditOrderModal(order)}
-                            className="px-2 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold border border-pink-200 shadow-xs"
-                            title="Edit quantities and finalize"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 inline mr-1" />
-                            <span>Edit</span>
-                          </button>
-                        )}
+                        {/* Edit & Finalize PO Button (Admin can add/delete items) */}
+                        <button
+                          onClick={() => openEditOrderModal(order)}
+                          className="px-2.5 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold border border-pink-200 shadow-xs inline-flex items-center gap-1"
+                          title="Admin: Add, edit, or delete items from this customer PO"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit PO (+/- Items)</span>
+                        </button>
 
                         {/* Accept Button */}
                         {isPending && (
@@ -569,15 +586,31 @@ export const AdminOrdersManager: React.FC = () => {
                           <span className="text-[10px] text-slate-500 font-mono">SKU: {item.itemSku}</span>
                         </td>
                         <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.orderedQty}
-                            onChange={(e) =>
-                              handleEditItemQty(item.itemSku, parseInt(e.target.value) || 0)
-                            }
-                            className="w-16 bg-white border border-slate-300 rounded-lg p-1.5 text-center text-slate-900 font-bold"
-                          />
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditItemQty(item.itemSku, Math.max(1, item.orderedQty - 1))}
+                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.orderedQty}
+                              onChange={(e) =>
+                                handleEditItemQty(item.itemSku, parseInt(e.target.value) || 0)
+                              }
+                              className="w-14 bg-white border border-slate-300 rounded-lg p-1 text-center text-slate-900 font-bold"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleEditItemQty(item.itemSku, item.orderedQty + 1)}
+                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs"
+                            >
+                              +
+                            </button>
+                          </div>
                         </td>
                         <td className="p-3 text-right text-slate-600">
                           ${item.wholesalePrice.toFixed(2)}
@@ -587,8 +620,10 @@ export const AdminOrdersManager: React.FC = () => {
                         </td>
                         <td className="p-3 text-center">
                           <button
+                            type="button"
                             onClick={() => handleRemoveEditItem(item.itemSku)}
-                            className="p-1 rounded text-slate-400 hover:text-rose-600"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete item from this PO"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -606,14 +641,12 @@ export const AdminOrdersManager: React.FC = () => {
                   onChange={(e) => setSelectedAddSku(e.target.value)}
                   className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900"
                 >
-                  <option value="">Select a phone model to add to this order...</option>
-                  {productAnalytics
-                    .filter((p) => p.category === 'PHONES')
-                    .map((p) => (
-                      <option key={p.itemSku} value={p.itemSku}>
-                        {p.itmdesc} (${p.wholesale.toFixed(2)} / {p.availableAllocationPcs} in alloc)
-                      </option>
-                    ))}
+                  <option value="">Select an item from complete price list to add to this PO...</option>
+                  {productAnalytics.map((p) => (
+                    <option key={p.itemSku} value={p.itemSku}>
+                      {p.itmdesc} [${p.wholesale.toFixed(2)} | In Alloc: {p.availableAllocationPcs} pcs] ({p.category})
+                    </option>
+                  ))}
                 </select>
                 <button
                   onClick={handleAddEditItem}
@@ -621,8 +654,52 @@ export const AdminOrdersManager: React.FC = () => {
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-40"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Phone</span>
+                  <span>Add to PO</span>
                 </button>
+              </div>
+
+              {/* IDOO Ref & Logistics Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                <div>
+                  <label className="text-slate-700 font-semibold block mb-1">
+                    IDOO Order # Ref:
+                  </label>
+                  <input
+                    type="text"
+                    value={editIdooNumber}
+                    onChange={(e) => setEditIdooNumber(e.target.value)}
+                    placeholder="e.g. IDOO-784920"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700 font-semibold block mb-1">
+                    Carrier Tracking No:
+                  </label>
+                  <input
+                    type="text"
+                    value={editTrackingNumber}
+                    onChange={(e) => setEditTrackingNumber(e.target.value)}
+                    placeholder="e.g. 1Z9999999999999999"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700 font-semibold block mb-1">
+                    Shipping Carrier:
+                  </label>
+                  <select
+                    value={editCarrierName}
+                    onChange={(e) => setEditCarrierName(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs"
+                  >
+                    <option value="UPS Ground">UPS Ground</option>
+                    <option value="FedEx Express">FedEx Express</option>
+                    <option value="USPS Priority">USPS Priority</option>
+                    <option value="Freight Express">Freight Express</option>
+                    <option value="Local Courier">Local Courier / Hand Delivery</option>
+                  </select>
+                </div>
               </div>
 
               {/* Order Notes */}
@@ -734,13 +811,44 @@ export const AdminOrdersManager: React.FC = () => {
                 </span>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Carrier Tracking No (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1Z9999999999999999"
+                    value={modalTrackingNumber}
+                    onChange={(e) => setModalTrackingNumber(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Shipping Carrier
+                  </label>
+                  <select
+                    value={modalCarrierName}
+                    onChange={(e) => setModalCarrierName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="UPS Ground">UPS Ground</option>
+                    <option value="FedEx Express">FedEx Express</option>
+                    <option value="USPS Priority">USPS Priority</option>
+                    <option value="Freight Express">Freight Express</option>
+                    <option value="Local Courier">Local Courier / Hand Delivery</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
-                  Carrier / Tracking Notes (Optional)
+                  Dispatch / Order Notes (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Tracking number or warehouse dispatch batch"
+                  placeholder="e.g. Warehouse batch or dispatch comments"
                   value={modalNotes}
                   onChange={(e) => setModalNotes(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-500"
@@ -779,12 +887,25 @@ export const AdminOrdersManager: React.FC = () => {
                 </span>
                 <span className="text-slate-500 block text-xs mt-0.5">Wichita Territory Dealer Order</span>
               </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="text-slate-500 hover:text-slate-800 px-2 py-1 bg-slate-100 rounded-lg"
-              >
-                ✕ Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const ord = selectedOrder;
+                    setSelectedOrder(null);
+                    openEditOrderModal(ord);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold flex items-center gap-1.5 shadow-xs"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit PO Items (Add / Delete)</span>
+                </button>
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="text-slate-500 hover:text-slate-800 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold"
+                >
+                  ✕ Close
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">

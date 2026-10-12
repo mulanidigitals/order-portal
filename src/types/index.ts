@@ -73,6 +73,8 @@ export interface CustomerOrder {
   // Admin processing fields (prompted when marking Placed)
   idooOrderNumber?: string;
   idooInvoiceAmount?: number;
+  trackingNumber?: string;
+  carrierName?: string;
   processedAt?: string;
   shippedAt?: string;
   notes?: string;
@@ -100,7 +102,7 @@ export interface IdooBacklogItem {
 export interface CustomerLedgerEntry {
   id: string;
   date: string;
-  type: 'Order Invoice' | 'Payment Received' | 'Credit Limit Adjustment' | 'Refund / Credit Note';
+  type: 'Order Invoice' | 'Payment Received' | 'Credit Limit Adjustment' | 'Refund / Credit Note' | 'Debit Adjustment' | 'Credit Adjustment';
   referenceNumber: string;
   orderId?: string;
   debit: number; // increases balance (e.g., order invoice)
@@ -178,6 +180,9 @@ export interface PhoneWiseOrderSummary {
     storeName: string;
     qty: number;
     status: OrderStatus;
+    idooOrderNumber?: string;
+    trackingNumber?: string;
+    carrierName?: string;
   }[];
 }
 

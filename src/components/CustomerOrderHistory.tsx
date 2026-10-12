@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export const CustomerOrderHistory: React.FC = () => {
@@ -21,6 +23,13 @@ export const CustomerOrderHistory: React.FC = () => {
   const [historyTab, setHistoryTab] = useState<'orders' | 'phones'>('orders');
   const [expandedPhoneSku, setExpandedPhoneSku] = useState<string | null>(null);
   const [phoneSearch, setPhoneSearch] = useState('');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
 
   // Filter orders: If combined, show all Wichita orders; otherwise store-specific
   const relevantOrders = isCombinedStore
@@ -158,11 +167,71 @@ export const CustomerOrderHistory: React.FC = () => {
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
                             {order.createdAt}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Prominent Logistics Badges: IDOO Order No & Carrier Tracking No */}
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        {/* IDOO Order No */}
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-950 font-mono text-xs shadow-xs">
+                          <Hash className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span className="font-semibold text-indigo-800">IDOO Order No:</span>
+                          <span className="font-bold text-indigo-950 font-mono">
+                            {order.idooOrderNumber || 'Awaiting IDOO Conf #'}
+                          </span>
                           {order.idooOrderNumber && (
-                            <span className="flex items-center gap-1 font-mono text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200 font-semibold">
-                              <Hash className="w-3 h-3" />
-                              IDOO Ref: {order.idooOrderNumber}
+                            <button
+                              onClick={() => copyText(order.idooOrderNumber!, `idoo-${order.id}`)}
+                              title="Copy IDOO Order #"
+                              className="ml-1 p-1 hover:bg-indigo-100 rounded text-indigo-700 transition-colors"
+                            >
+                              {copiedKey === `idoo-${order.id}` ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Tracking No */}
+                        <div
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs border shadow-xs transition-colors ${
+                            order.trackingNumber
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                              : 'bg-slate-50 border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          <Truck
+                            className={`w-3.5 h-3.5 shrink-0 ${
+                              order.trackingNumber ? 'text-emerald-600' : 'text-slate-400'
+                            }`}
+                          />
+                          <span className="font-semibold text-slate-800">Tracking No:</span>
+                          <span
+                            className={`font-bold font-mono ${
+                              order.trackingNumber ? 'text-emerald-900' : 'text-slate-500'
+                            }`}
+                          >
+                            {order.trackingNumber || 'Pending Dispatch / In Transit'}
+                          </span>
+                          {order.carrierName && (
+                            <span className="text-[10px] bg-white px-1.5 py-0.5 rounded-md border border-slate-200 text-slate-700 font-sans font-bold">
+                              {order.carrierName}
                             </span>
+                          )}
+                          {order.trackingNumber && (
+                            <button
+                              onClick={() => copyText(order.trackingNumber!, `trk-${order.id}`)}
+                              title="Copy Carrier Tracking #"
+                              className="ml-1 p-1 hover:bg-emerald-100 rounded text-emerald-700 transition-colors"
+                            >
+                              {copiedKey === `trk-${order.id}` ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -294,17 +363,36 @@ export const CustomerOrderHistory: React.FC = () => {
                                   {p.recentOrders.map((ro, rIdx) => (
                                     <div
                                       key={rIdx}
-                                      className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs flex justify-between items-center shadow-xs"
+                                      className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs shadow-xs space-y-1.5"
                                     >
-                                      <div>
-                                        <span className="font-mono font-bold text-pink-700">{ro.orderNumber}</span>
-                                        <p className="text-[10px] text-slate-500">{ro.date}</p>
-                                        <p className="text-[10px] text-slate-400">{ro.storeName}</p>
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <span className="font-mono font-bold text-pink-700">{ro.orderNumber}</span>
+                                          <p className="text-[10px] text-slate-500">{ro.date}</p>
+                                          <p className="text-[10px] text-slate-400">{ro.storeName}</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="font-black text-slate-900">{ro.qty} pcs</span>
+                                          <span className="block text-[10px] text-emerald-700 font-semibold">{ro.status}</span>
+                                        </div>
                                       </div>
-                                      <div className="text-right">
-                                        <span className="font-black text-slate-900">{ro.qty} pcs</span>
-                                        <span className="block text-[10px] text-emerald-700">{ro.status}</span>
-                                      </div>
+
+                                      {(ro.idooOrderNumber || ro.trackingNumber) && (
+                                        <div className="pt-1.5 border-t border-slate-100 space-y-1 font-mono text-[10px]">
+                                          {ro.idooOrderNumber && (
+                                            <div className="flex items-center justify-between text-indigo-900 bg-indigo-50/70 px-1.5 py-0.5 rounded">
+                                              <span className="font-sans text-indigo-700 font-bold">IDOO:</span>
+                                              <span className="font-bold">{ro.idooOrderNumber}</span>
+                                            </div>
+                                          )}
+                                          {ro.trackingNumber && (
+                                            <div className="flex items-center justify-between text-emerald-900 bg-emerald-50/70 px-1.5 py-0.5 rounded">
+                                              <span className="font-sans text-emerald-700 font-bold">Track ({ro.carrierName || 'UPS'}):</span>
+                                              <span className="font-bold truncate max-w-[130px]">{ro.trackingNumber}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
+import { AllocationItem } from '../types';
 import {
   Upload,
   Camera,
@@ -12,16 +13,42 @@ import {
   X,
   RefreshCw,
   RotateCcw,
+  Plus,
+  Trash2,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
 
 export const AllocationManager: React.FC = () => {
-  const { allocations, addAllocationFromScreenshot, updateAllocationItem } = useApp();
+  const {
+    allocations,
+    addAllocationFromScreenshot,
+    updateAllocationItem,
+    addAllocationItemManually,
+    deleteAllocationItem,
+    productAnalytics,
+  } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'current' | 'ocr'>('current');
 
+  // Manual Add Modal State
+  const [isManualAddOpen, setIsManualAddOpen] = useState(false);
+  const [manualSku, setManualSku] = useState('');
+  const [manualDesc, setManualDesc] = useState('');
+  const [manualBrand, setManualBrand] = useState('APPLE');
+  const [manualPacks, setManualPacks] = useState<number | ''>(1);
+  const [manualPackSize, setManualPackSize] = useState<number>(20);
+
+  // Edit Pack Modal State (replaces window.prompt)
+  const [editingAlloc, setEditingAlloc] = useState<AllocationItem | null>(null);
+  const [editPackCount, setEditPackCount] = useState<number | ''>(1);
+
+  // Delete Confirm Modal State
+  const [deletingAlloc, setDeletingAlloc] = useState<AllocationItem | null>(null);
+
   // Multi-Attachment State
   const [attachedFiles, setAttachedFiles] = useState<{ id: string; name: string; preview: string }[]>([]);
-  const [replacePrevious, setReplacePrevious] = useState(true); // User requirement: "JAB ALLOCATION UPLOAD HO TAU PREVIOUS ZERO HOJAI"
+  const [replacePrevious, setReplacePrevious] = useState(true);
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'analyzing' | 'done'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -239,18 +266,53 @@ export const AllocationManager: React.FC = () => {
         {/* Tab 1: Current Allocations */}
         {activeSubTab === 'current' && (
           <div>
+            {/* Allocation & Reserved Concept Explanation */}
+            <div className="m-4 p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl text-xs text-indigo-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-indigo-900 block text-sm">
+                    💡 Allocation &amp; Reserved Units Rule
+                  </span>
+                  <p className="text-slate-700 mt-1 leading-relaxed">
+                    <strong>Allocation</strong> is the total available quota from the carrier that dealers can order. If there are <strong>40 pcs in allocation</strong>, that means the dealer can place an order for <strong>40 pcs</strong>!
+                  </p>
+                  <p className="text-slate-700 mt-1 leading-relaxed">
+                    <strong>What is "Reserved"?</strong> When a customer places an order for 10 pcs, those 10 pcs are marked as <strong>Reserved (Committed)</strong> so other orders don't double-book them.
+                    Formula: <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono font-bold text-indigo-900">Available Pcs = Total Allocation − Reserved Pcs</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="text-slate-600">
                 Pack Rule: <strong className="text-slate-900">iPhones = 20 pcs/pack</strong> | Other Brands = <strong className="text-slate-900">5 pcs/pack</strong>
               </div>
 
-              <button
-                onClick={exportAllocationCsv}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-emerald-700 text-xs font-semibold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Allocations CSV</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setManualSku('');
+                    setManualDesc('');
+                    setManualBrand('APPLE');
+                    setManualPacks(1);
+                    setManualPackSize(20);
+                    setIsManualAddOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Item Manually</span>
+                </button>
+                <button
+                  onClick={exportAllocationCsv}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-emerald-700 text-xs font-semibold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -266,7 +328,7 @@ export const AllocationManager: React.FC = () => {
                     <th className="py-3 px-4 text-center">Reserved</th>
                     <th className="py-3 px-4 text-center">Available Pcs</th>
                     <th className="py-3 px-4">Last Updated</th>
-                    <th className="py-3 px-4 text-right">Edit</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
@@ -319,20 +381,25 @@ export const AllocationManager: React.FC = () => {
                         </td>
 
                         <td className="py-3 px-4 text-right font-sans">
-                          <button
-                            onClick={() => {
-                              const newPacks = window.prompt(
-                                `Enter new pack count for ${a.itmdesc}:`,
-                                a.packs.toString()
-                              );
-                              if (newPacks !== null && !isNaN(parseInt(newPacks))) {
-                                updateAllocationItem(a.id, parseInt(newPacks));
-                              }
-                            }}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingAlloc(a);
+                                setEditPackCount(a.packs);
+                              }}
+                              title="Edit Pack Count"
+                              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-700 transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingAlloc(a)}
+                              title="Delete Allocation Item"
+                              className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -534,6 +601,299 @@ export const AllocationManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Manual Add Allocation Item Modal */}
+      {isManualAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full shadow-2xl p-6 text-xs animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Add Item to Allocation List Manually
+                  </h3>
+                  <p className="text-slate-500 text-[11px]">
+                    Select from Wichita catalog or enter custom carrier quota
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsManualAddOpen(false)}
+                className="text-slate-400 hover:text-slate-800 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!manualSku.trim() || !manualDesc.trim()) {
+                  alert('Please select or enter SKU and description.');
+                  return;
+                }
+                const packsCount = Number(manualPacks) || 1;
+                const multiplier = Number(manualPackSize) || 5;
+                const totalUnits = packsCount * multiplier;
+
+                addAllocationItemManually({
+                  itemSku: manualSku.trim(),
+                  itmdesc: manualDesc.trim(),
+                  manufacturer: manualBrand.trim().toUpperCase() || 'APPLE',
+                  packs: packsCount,
+                  packUnitSize: multiplier,
+                  totalPcs: totalUnits,
+                  availablePcs: totalUnits,
+                });
+
+                setIsManualAddOpen(false);
+              }}
+              className="space-y-4"
+            >
+              {/* Quick Select from Price List */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Quick Select from Price List Catalog:
+                </label>
+                <select
+                  onChange={(e) => {
+                    const selected = productAnalytics.find((p) => p.itemSku === e.target.value);
+                    if (selected) {
+                      setManualSku(selected.itemSku);
+                      setManualDesc(selected.itmdesc);
+                      setManualBrand(selected.manufacturer);
+                      const isApple =
+                        selected.manufacturer.toUpperCase() === 'APPLE' ||
+                        selected.itmdesc.toUpperCase().includes('IPHONE');
+                      setManualPackSize(isApple ? 20 : 5);
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-600"
+                >
+                  <option value="">-- Choose from Catalog or Enter Custom Below --</option>
+                  {productAnalytics.map((p) => (
+                    <option key={p.itemSku} value={p.itemSku}>
+                      {p.itmdesc} ({p.itemSku}) - {p.manufacturer}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* SKU */}
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Item SKU Number:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 195950051681"
+                  value={manualSku}
+                  onChange={(e) => setManualSku(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Phone Description:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. APL IPHONE 16E 128G BLK TMUS KIT"
+                  value={manualDesc}
+                  onChange={(e) => setManualDesc(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              {/* Brand & Pack Multiplier */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Manufacturer / Brand:
+                  </label>
+                  <select
+                    value={manualBrand}
+                    onChange={(e) => {
+                      const newBrand = e.target.value;
+                      setManualBrand(newBrand);
+                      if (newBrand === 'APPLE') {
+                        setManualPackSize(20);
+                      } else {
+                        setManualPackSize(5);
+                      }
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-600"
+                  >
+                    <option value="APPLE">APPLE (iPhone 20x)</option>
+                    <option value="SAMSUNG">SAMSUNG (5x)</option>
+                    <option value="MOTOROLA">MOTOROLA (5x)</option>
+                    <option value="T-MOBILE">T-MOBILE (5x)</option>
+                    <option value="GOOGLE">GOOGLE (5x)</option>
+                    <option value="OTHER">OTHER (Custom)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Pack Multiplier (Pcs / Pack):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={manualPackSize}
+                    onChange={(e) => setManualPackSize(parseInt(e.target.value) || 1)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {/* Number of Packs */}
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Number of Packs to Allocate:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={manualPacks}
+                    onChange={(e) => setManualPacks(e.target.value === '' ? '' : parseInt(e.target.value) || 1)}
+                    className="w-32 bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-center text-pink-700 text-sm focus:bg-white focus:outline-none focus:border-indigo-600"
+                  />
+                  <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex-1 text-center font-mono">
+                    <span className="text-[11px] text-indigo-700 block">Total Customer Orderable:</span>
+                    <strong className="text-sm font-black text-indigo-950">
+                      {((Number(manualPacks) || 1) * manualPackSize)} pcs
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsManualAddOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add to Allocation List</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Pack Count Modal */}
+      {editingAlloc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full shadow-2xl p-6 text-xs animate-in zoom-in-95">
+            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Edit2 className="w-4 h-4 text-indigo-600" />
+              <span>Edit Allocation Packs</span>
+            </h3>
+            <p className="text-slate-500 mb-3 truncate font-medium">
+              {editingAlloc.itmdesc} ({editingAlloc.itemSku})
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editingAlloc && editPackCount !== '') {
+                  updateAllocationItem(editingAlloc.id, Number(editPackCount));
+                  setEditingAlloc(null);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Pack Count (Pack size: {editingAlloc.packUnitSize} pcs/pack):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={editPackCount}
+                  onChange={(e) =>
+                    setEditPackCount(e.target.value === '' ? '' : parseInt(e.target.value) || 0)
+                  }
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-900 text-sm focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between text-xs font-mono">
+                <span>New Total Units:</span>
+                <strong className="text-slate-900 font-black">
+                  {(Number(editPackCount) || 0) * editingAlloc.packUnitSize} pcs
+                </strong>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingAlloc(null)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                >
+                  Update Packs
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Allocation Confirm Modal */}
+      {deletingAlloc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full shadow-2xl p-6 text-xs animate-in zoom-in-95">
+            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Remove from Allocation?</span>
+            </h3>
+            <p className="text-slate-600 mb-4">
+              Are you sure you want to remove <strong className="text-slate-900 font-mono">{deletingAlloc.itmdesc}</strong> from the active allocation quota?
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingAlloc(null)}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteAllocationItem(deletingAlloc.id);
+                  setDeletingAlloc(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                Delete Item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

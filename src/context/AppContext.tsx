@@ -86,7 +86,10 @@ interface AppContextType {
   editAndFinalizeOrder: (
     orderId: string,
     updatedItems: OrderItem[],
-    notes?: string
+    notes?: string,
+    idooOrderNumber?: string,
+    trackingNumber?: string,
+    carrierName?: string
   ) => { success: boolean; error?: string };
 
   placeCustomerOrder: (
@@ -98,7 +101,9 @@ interface AppContextType {
     orderId: string,
     idooOrderNumber: string,
     invoiceAmount: number,
-    notes?: string
+    notes?: string,
+    trackingNumber?: string,
+    carrierName?: string
   ) => { success: boolean; error?: string };
 
   updateOrderStatus: (orderId: string, newStatus: CustomerOrder['status']) => void;
@@ -126,6 +131,17 @@ interface AppContextType {
     note?: string
   ) => void;
 
+  addAllocationItemManually: (item: {
+    itemSku: string;
+    itmdesc: string;
+    manufacturer: string;
+    packs: number;
+    packUnitSize: number;
+    totalPcs: number;
+    availablePcs: number;
+  }) => void;
+  deleteAllocationItem: (id: string) => void;
+
   updateMarketBudgetLimit: (newLimit: number) => void;
 
   recordCustomerPayment: (
@@ -134,6 +150,10 @@ interface AppContextType {
     refNo: string,
     notes?: string
   ) => void;
+
+  addLedgerEntry: (entry: Omit<CustomerLedgerEntry, 'id' | 'runningBalance'>) => void;
+  updateLedgerEntry: (id: string, updated: Partial<CustomerLedgerEntry>) => void;
+  deleteLedgerEntry: (id: string) => void;
 
   updateCreditLimit: (newLimit: number, notes?: string) => void;
 
@@ -654,6 +674,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 storeName: ord.storeName || 'Wichita Territory',
                 qty: it.orderedQty,
                 status: ord.status,
+                idooOrderNumber: ord.idooOrderNumber,
+                trackingNumber: ord.trackingNumber,
+                carrierName: ord.carrierName,
               },
             ],
           });
@@ -669,6 +692,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             storeName: ord.storeName || 'Wichita Territory',
             qty: it.orderedQty,
             status: ord.status,
+            idooOrderNumber: ord.idooOrderNumber,
+            trackingNumber: ord.trackingNumber,
+            carrierName: ord.carrierName,
           });
         }
       });
@@ -825,7 +851,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     orderId: string,
     idooOrderNumber: string,
     invoiceAmount: number,
-    notes?: string
+    notes?: string,
+    trackingNumber?: string,
+    carrierName?: string
   ) => {
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) {
@@ -858,6 +886,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           status: 'Placed / Processing' as const,
           idooOrderNumber,
           idooInvoiceAmount: invoiceAmount,
+          trackingNumber: trackingNumber || o.trackingNumber || `TRK-${Date.now().toString().slice(-8)}`,
+          carrierName: carrierName || o.carrierName || 'UPS Ground',
           processedAt: new Date().toLocaleString('en-US', {
             dateStyle: 'medium',
             timeStyle: 'short',
@@ -917,6 +947,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       idooOrderNumber,
       invoiceAmount,
       idooInvoiceAmount: invoiceAmount,
+      trackingNumber: trackingNumber || targetUpdated?.trackingNumber,
+      carrierName: carrierName || targetUpdated?.carrierName,
       orderNumber: targetOrder.orderNumber,
       totalPcs: targetOrder.totalPcs,
       totalWholesaleValue: targetOrder.totalWholesaleValue,
@@ -1041,7 +1073,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const editAndFinalizeOrder = (
     orderId: string,
     updatedItems: OrderItem[],
-    notes?: string
+    notes?: string,
+    idooOrderNumber?: string,
+    trackingNumber?: string,
+    carrierName?: string
   ) => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, error: 'Order not found' };
@@ -1141,6 +1176,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               hasShortage,
               shortageTotalPcs: newShortageTotal,
               status: newStatus,
+              idooOrderNumber: idooOrderNumber !== undefined ? idooOrderNumber : o.idooOrderNumber,
+              trackingNumber: trackingNumber !== undefined ? trackingNumber : o.trackingNumber,
+              carrierName: carrierName !== undefined ? carrierName : o.carrierName,
               notes: notes ? `${o.notes ? o.notes + ' | ' : ''}Finalized: ${notes}` : o.notes,
             }
           : o
@@ -1152,6 +1190,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       totalPcs: newTotalPcs,
       wholesale: newTotalWholesale,
       items: finalizedItems,
+      idooOrderNumber,
+      trackingNumber,
     });
 
     return { success: true };
@@ -1276,6 +1316,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
+  const addAllocationItemManually = (item: {
+    itemSku: string;
+    itmdesc: string;
+    manufacturer: string;
+    packs: number;
+    packUnitSize: number;
+    totalPcs: number;
+    availablePcs: number;
+  }) => {
+    setAllocations((prev) => {
+      const existingIdx = prev.findIndex((a) => a.itemSku === item.itemSku);
+      if (existingIdx >= 0) {
+        const exist = prev[existingIdx];
+        const newTotal = exist.totalPcs + item.totalPcs;
+        const newPacks = exist.packs + item.packs;
+        const newAvail = Math.max(0, newTotal - exist.reservedPcs);
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...exist,
+          packs: newPacks,
+          totalPcs: newTotal,
+          availablePcs: newAvail,
+          lastUpdated: 'Just now (Manual Entry)',
+          sourceNote: 'Admin Manual Allocation',
+        };
+        return updated;
+      }
+      return [
+        {
+          id: `alloc-manual-${Date.now()}`,
+          itemSku: item.itemSku,
+          itmdesc: item.itmdesc,
+          manufacturer: item.manufacturer.toUpperCase(),
+          packs: item.packs,
+          packUnitSize: item.packUnitSize,
+          totalPcs: item.totalPcs,
+          reservedPcs: 0,
+          availablePcs: item.availablePcs,
+          lastUpdated: 'Just now (Manual Entry)',
+          sourceNote: 'Admin Manual Allocation',
+        },
+        ...prev,
+      ];
+    });
+    dispatchAutoSync('ALLOCATION_UPDATED', { manualAdd: item });
+  };
+
+  const deleteAllocationItem = (id: string) => {
+    setAllocations((prev) => prev.filter((a) => a.id !== id));
+    dispatchAutoSync('ALLOCATION_UPDATED', { deletedId: id });
+  };
+
   const updateMarketBudgetLimit = (newLimit: number) => {
     setMarketBudget((prev) => ({
       ...prev,
@@ -1284,31 +1376,79 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  // Recomputes running balance for all ledger entries in chronological order
+  const recomputeLedgerBalances = (entries: CustomerLedgerEntry[]) => {
+    let running = 0;
+    return entries.map((entry) => {
+      running += (entry.debit || 0) - (entry.credit || 0);
+      return {
+        ...entry,
+        runningBalance: Number(running.toFixed(2)),
+      };
+    });
+  };
+
+  const addLedgerEntry = (entryData: Omit<CustomerLedgerEntry, 'id' | 'runningBalance'>) => {
+    setLedger((prev) => {
+      const newEntry: CustomerLedgerEntry = {
+        ...entryData,
+        id: `led-${Date.now()}`,
+        runningBalance: 0,
+      };
+      const updated = recomputeLedgerBalances([...prev, newEntry]);
+      const finalBalance = updated.length > 0 ? updated[updated.length - 1].runningBalance : 0;
+      setCustomerAccount((acc) => ({
+        ...acc,
+        currentBalance: finalBalance,
+        availableCredit: Math.max(0, acc.creditLimit - finalBalance),
+      }));
+      return updated;
+    });
+  };
+
+  const updateLedgerEntry = (id: string, updated: Partial<CustomerLedgerEntry>) => {
+    setLedger((prev) => {
+      const mapped = prev.map((e) => (e.id === id ? { ...e, ...updated } : e));
+      const recomputed = recomputeLedgerBalances(mapped);
+      const finalBalance = recomputed.length > 0 ? recomputed[recomputed.length - 1].runningBalance : 0;
+      setCustomerAccount((acc) => ({
+        ...acc,
+        currentBalance: finalBalance,
+        availableCredit: Math.max(0, acc.creditLimit - finalBalance),
+      }));
+      return recomputed;
+    });
+  };
+
+  const deleteLedgerEntry = (id: string) => {
+    setLedger((prev) => {
+      const filtered = prev.filter((e) => e.id !== id);
+      const recomputed = recomputeLedgerBalances(filtered);
+      const finalBalance = recomputed.length > 0 ? recomputed[recomputed.length - 1].runningBalance : 0;
+      setCustomerAccount((acc) => ({
+        ...acc,
+        currentBalance: finalBalance,
+        availableCredit: Math.max(0, acc.creditLimit - finalBalance),
+      }));
+      return recomputed;
+    });
+  };
+
   const recordCustomerPayment = (
     amount: number,
     method: 'Wire' | 'ACH' | 'Cash' | 'Check' | 'Zelle' | 'Carrier Rebate',
     refNo: string,
     notes?: string
   ) => {
-    const newBalance = Math.max(0, customerAccount.currentBalance - amount);
-    const newEntry: CustomerLedgerEntry = {
-      id: `led-${Date.now()}`,
+    addLedgerEntry({
       date: new Date().toLocaleDateString('en-US'),
       type: 'Payment Received',
       referenceNumber: refNo,
       debit: 0,
       credit: amount,
-      runningBalance: newBalance,
       paymentMethod: method,
       notes: notes || `Payment received via ${method}`,
-    };
-
-    setLedger((prev) => [...prev, newEntry]);
-    setCustomerAccount((prev) => ({
-      ...prev,
-      currentBalance: newBalance,
-      availableCredit: Math.max(0, prev.creditLimit - newBalance),
-    }));
+    });
   };
 
   const updateCreditLimit = (newLimit: number, notes?: string) => {
@@ -1318,18 +1458,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       availableCredit: Math.max(0, newLimit - prev.currentBalance),
     }));
 
-    const newEntry: CustomerLedgerEntry = {
-      id: `led-${Date.now()}`,
+    addLedgerEntry({
       date: new Date().toLocaleDateString('en-US'),
       type: 'Credit Limit Adjustment',
       referenceNumber: `LIMIT-REV-${Date.now().toString().slice(-4)}`,
       debit: 0,
       credit: 0,
-      runningBalance: customerAccount.currentBalance,
       notes: notes || `Credit limit updated to $${newLimit.toLocaleString()}`,
-    };
-
-    setLedger((prev) => [...prev, newEntry]);
+    });
   };
 
   const resetToInitialData = () => {
@@ -1383,8 +1519,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateIdooBacklogStatus,
         addAllocationFromScreenshot,
         updateAllocationItem,
+        addAllocationItemManually,
+        deleteAllocationItem,
         updateMarketBudgetLimit,
         recordCustomerPayment,
+        addLedgerEntry,
+        updateLedgerEntry,
+        deleteLedgerEntry,
         updateCreditLimit,
         deleteOrder,
         resetToInitialData,
